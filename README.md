@@ -1,21 +1,21 @@
-# Order Management System - Admin Application
+# Customer Application - Order Platform
 
 ## Overview
-The Admin Application is a cross-platform mobile client built with Flutter, designed for system administrators and vendors to manage the end-to-end operations of the platform. It provides a comprehensive dashboard for order fulfillment, inventory management, and regional branch coordination.
+The Customer Application is a cross-platform mobile client built with Flutter, providing users with a seamless and intuitive shopping experience. It interfaces directly with the central PHP backend to deliver real-time product catalogs, cart management, and order tracking functionalities.
 
 ## Key Features
-* **Order Pipeline Management:** Strict enforcement of the order workflow, ensuring orders follow the correct lifecycle sequence (Admin Confirmation to Vendor Acceptance).
-* **Regional Routing:** System capabilities for routing orders based on regional branch coverage and zones.
-* **Vendor Status Control:** Automated availability toggling based on configured business hours, alongside manual override capabilities for dynamic operational control.
-* **Inventory Management:** Full CRUD operations for product catalogs, including comprehensive image handling, utilizing the `image_picker` and caching mechanisms.
-* **Real-time Analytics:** Integrated dashboard charts utilizing `fl_chart` for visual operational insights.
-* **Secure Authentication:** Role-based access control ensuring data isolation and secure access to administrative API endpoints. Push notifications handled via Firebase Cloud Messaging.
+* **Product Catalog:** Browse and search through items from various regional vendors with dynamic image loading via `cached_network_image` and clean UI state handling via `shimmer`.
+* **Cart & Checkout System:** Robust cart management that strictly validates against real-time vendor availability and regional coverage before allowing checkout.
+* **Order Tracking:** Real-time visibility into order status, tracking the progression from placement through admin confirmation and final delivery.
+* **Interactive UI:** Features such as rating bars, smooth page indicators, and responsive layouts designed for modern mobile displays.
+* **User Authentication:** Secure user registration, login, and profile management utilizing tokenized sessions with `flutter_secure_storage`.
+* **Push Notifications:** Immediate alerts for order status changes powered by Firebase Cloud Messaging and local notifications.
 
 ## Technology Stack
 * **Framework:** Flutter / Dart
 * **State Management:** GetX
-* **Storage & Caching:** GetStorage, SharedPreferences, Flutter Secure Storage
-* **Network & API Integration:** `http` package with secure authentication headers
+* **Storage:** GetStorage, SharedPreferences, Flutter Secure Storage
+* **Network Integration:** `http` package for robust API communication
 * **Target Platforms:** Android, iOS
 
 ## Getting Started
@@ -33,7 +33,7 @@ The Admin Application is a cross-platform mobile client built with Flutter, desi
    ```
 2. Navigate to the project directory:
    ```bash
-   cd order_admin
+   cd order_app
    ```
 3. Install dependencies:
    ```bash
@@ -44,6 +44,6 @@ The Admin Application is a cross-platform mobile client built with Flutter, desi
    flutter run
    ```
 
-## Development Guidelines
-* Maintain strict type safety across all Data Transfer Objects (DTOs) and API payloads.
-* Ensure all state changes reflect correctly in the UI, utilizing GetX's reactive principles, particularly for order status transitions and vendor availability toggles.
+## Architecture & Security Posture
+* Production builds adhere to secure coding practices, including code obfuscation and root/jailbreak detection mechanisms.
+* API interactions are secured via authenticated tokens to ensure data integrity and user privacy. Ensure API endpoints align correctly with the backend's RBAC system.
