@@ -1,0 +1,460 @@
+(Optional)
+(Recommended: 1200×400)
+0.00
+01003640090
+?
+Accept
+Account Active
+Account Information
+Action completed
+Action failed
+Activate Admin
+Activate Customer
+Active
+Active / Recent Sessions
+Active Items
+Ad Title *
+Ad removed
+Add
+Add Admin
+Add Category
+Add First Category
+Add First Zone
+Add Item
+Add Menu Item
+Add New Admin
+Add Vendor
+Add Zone
+Add to Menu
+Added
+Address
+Addresses
+Admin
+Admin Dashboard
+Admin ID
+Admin Panel
+Admin added successfully
+Admin removed
+Admins
+Ads
+Advertisement details...
+Advertisements
+All
+All Orders
+All Time
+All Vendors
+All account fields are required
+All business fields are required
+All changes saved successfully
+All marked as collected
+Already have an account? Sign In
+Approve
+Approved
+Arabic
+Are you sure you want to delete 
+Are you sure you want to logout?
+Are you sure? This action cannot be undone.
+Available to order
+Avg / Order
+Back
+Bank
+Base Fee
+Base Fee (₪) *
+Base Price (₪) *
+Base fee is required
+Both fields are required
+Business Address
+Business Address *
+Business Details
+Business Information
+Business Name
+Business Name *
+Business Phone
+Business Phone *
+Business Profile
+Business Type
+Business Type *
+Business address is required
+Business name is required
+Business phone is required
+Café
+Cancel
+Cancel Order
+Cancellation reason...
+Cancelled
+Cash
+Categories
+Category *
+Category created
+Category name (e.g. Burgers, Beverages)
+Category removed
+Category updated
+Change Password
+Change failed
+Changes apply to all new orders. Existing orders keep their original fee.
+Clear Filter
+Closed
+Closing
+Closing Time
+Collect
+Collect All
+Collected
+Commission
+Commission Percentage (%)
+Commission Rate (%)
+Completed
+Confirm
+Confirm Cancel
+Confirm New Password
+Confirm Password
+Connection error. Please try again.
+Contact & Location
+Contact Information
+Coordinates
+Copied
+Cover
+Cover image updated
+Create
+Create & Approve Vendor
+Create Advertisement
+Create First Ad
+Create Vendor
+Create Zone
+Create new password
+Created
+Creating...
+Current Password
+Customer removed
+Customers
+Dashboard
+Deactivate
+Deactivate Admin
+Deactivate Customer
+Debug Error
+Delete
+Delete Ad
+Delete Admin
+Delete Category
+Delete Customer
+Delete Item
+Delete Zone
+Deleted
+Delivered
+Delivery Fee
+Delivery Fees
+Delivery Zones
+Delivery zone created
+Delivery zone updated
+Describe the item ingredients...
+Description
+Discount Price (₪)
+Dispatch
+Distance Range
+Done
+Download PDF Report
+Earnings
+Earnings Details
+Edit
+Edit Advertisement
+Edit Category
+Edit Delivery Zone
+Edit Menu Item
+Email
+Email address
+Email and password are required
+End Date *
+English
+Enter verification code
+Error
+Est. Delivery
+Est. Delivery Time
+Est. delivery:
+Est. delivery: 
+Estimated Delivery Time
+Estimated Time (optional)
+Expired
+Expires:
+Failed
+Failed to create vendor
+Failed to remove
+Failed to resend code
+Failed to save
+Failed to save PDF. Check storage permissions.
+Failed to send code
+Failed to upload cover
+Failed to upload logo
+Far Extra
+Far Extra Fee (₪)
+Fee Config
+Fee Configuration
+Fee Model
+Fee configuration updated
+Fees
+Fill in your details to register your business
+Fixed amount per order
+Flat Delivery Fee (₪)
+Flat Fee
+Forgot Password
+Forgot Password?
+Full Name
+Full address...
+Generating PDF
+Go to Login
+Good 
+Inactive
+Incoming
+Invalid code
+Item Name *
+Item name is required
+Item removed
+Join as a Vendor
+Language
+Last Order
+Link to Vendor
+Live Pipeline
+Loading vendors...
+Logged in:
+Logging out for security. Please login with your new password.
+Login failed
+Logo updated successfully
+Logout
+Manage Admins
+Manage Customers
+Manage Vendors
+Mark Ready
+Mark all uncollected earnings as collected?
+Marked as collected
+Max Distance (km) *
+Max distance is required
+Max distance must be greater than min distance
+Max distance must be greater than min distance. Use consecutive ranges (e.g. 0–2, 2.01–5, 5.01–10).
+Maximum Fee Cap (₪)
+Menu
+Menu Categories
+Menu Items
+Menu item created
+Menu item updated
+Min 6 characters
+Min Distance (km) *
+Min Order
+Min distance is required
+Minimum Fee (₪)
+Name
+Nearby Extra
+Nearby Extra Fee (₪)
+Nearby extra fee is added for short-distance surcharges. Far extra fee is added for long-distance orders within this zone.
+Never
+New Ad
+New Advertisement
+New Category
+New Delivery Zone
+New Password
+New code sent to your email
+No
+No admins found
+No advertisements
+No categories yet
+No customers found
+No delivery zones
+No earnings data
+No incoming orders
+No items
+No items in this category
+No menu items yet
+No orders
+No orders found
+No orders yet
+No recent orders
+No recent sessions
+No vendors found
+Not Allowed
+Not available
+Notes
+Off
+On
+Open
+Opening
+Opening Time
+Operating Hours
+Optional
+Order Delivery
+Order Items
+Order Statistics
+Order Status Breakdown
+Order cancelled
+Order not found
+Orders
+Orders Today
+Orders by Status
+Owner Email *
+Owner Full Name *
+Owner Information
+Owner Phone *
+Owner email is required
+Owner name is required
+Owner phone is required
+Password
+Password *
+Password Changed
+Password must be at least 6 characters
+Password reset successfully
+Passwords do not match
+Paused
+Pending
+Pending Approval
+Pending Orders
+Percent of order total
+Percentage
+Personal Information
+Phone
+Phone Number
+Please enter the 6-digit code
+Please enter your email
+Please provide a cancellation reason:
+Please select a category
+Please wait...
+Preparation Time (minutes)
+Preparing
+Price is required
+Profile
+Quick Actions
+Rating
+Reactivate
+Reactivated
+Ready
+Reason for cancellation
+Reason...
+Recent Orders
+Register as Vendor
+Registered
+Registration failed
+Reject
+Rejected
+Remove
+Remove this advertisement?
+Remove this delivery zone?
+Report saved to:\n$filepath
+Reset Password
+Reset failed
+Reset your password
+Restaurant
+Retry
+Revenue
+Revenue Today
+Reviews
+Role
+Save
+Save All Changes
+Save Changes
+Save Config
+Save Configuration
+Saved
+Saved Addresses
+Saving...
+Search admins...
+Search by name, email, or ID...
+Search customers...
+Search order # or customer...
+Search orders...
+Search vendors...
+Select Vendor
+Select category *
+Send Reset Code
+Sign In
+Something went wrong
+Something went wrong: 
+Sort Order
+Start Date *
+Start Preparing
+Status History
+Status updated
+Store
+Store is Closed
+Store is Open
+Store must be approved first
+Submit Registration
+Submitted!
+Success
+Super Admin
+Suspend
+Suspended
+System Info
+System Settings
+Tap to add banner image
+Tap to add photo
+Tap to change
+Tap to select a vendor (optional)
+Tap to toggle store status
+Target URL
+This Month
+This action is irreversible and the admin will be completely removed.
+This customer has 
+This vendor will be created with approved status and can login immediately.
+This will remove the category. Items in it will not be deleted.
+Title is required
+Today
+Total
+Total Earnings
+Total Logins
+Total Orders
+Total Revenue
+Total Spent
+Unavailable
+Uncategorized
+Unknown API error
+Unknown Device
+Unknown IP
+Unknown vendor
+Update
+Update failed
+Updated
+Upload failed
+Uploaded
+User ID
+Validation
+Vendor Dashboard
+Vendor ID
+Vendor application rejected
+Vendor approved successfully
+Vendor created & approved
+Vendor not found
+Vendor reactivated
+Vendor suspended
+Vendors
+Verify Code
+View All
+View →
+We sent a 6-digit code to\n
+Yes
+You will be able to login once your account is approved.
+Your new password must be at least 6 characters
+Your store is now closed
+Your store is now open
+Your store must be approved before you can open it
+Zone Details
+Zone Name *
+Zone name is required
+Zone removed
+Zones
+afternoon
+copied
+copied to clipboard
+e.g. 15
+e.g. 30-45 min
+e.g. Ahmed Hassan
+e.g. Gaza Grill Restaurant
+e.g. Grilled Chicken Sandwich
+e.g. Summer Sale 50% Off
+e.g. Zone 1 - Very Close (0 to 2 km)
+evening
+items
+ll send you a 6-digit code
+morning
+new incoming orders!
+order(s). The account will be deactivated instead of deleted to preserve order history.
+order(s). The account will be deactivated instead.
+orders
+orders waiting for confirmation!
+owner@example.com
+t receive code? Resend
+© 2026 Order Delivery
