@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/app_constants.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../controllers/sa_vendors_controller.dart';
 
-class SaVendorsView extends GetView<SaVendorsController> {
+class SaVendorsView extends ConsumerWidget {
   const SaVendorsView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(SaVendorsController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(saVendorsProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -25,7 +28,7 @@ class SaVendorsView extends GetView<SaVendorsController> {
       drawer: const AppDrawer(currentRoute: AppRoutes.saVendors),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Get.toNamed(AppRoutes.saCreateVendor);
+          final result = await AppNavigator.toNamed(AppRoutes.saCreateVendor);
           if (result == true) controller.fetchVendors();
         },
         icon: const Icon(Icons.add_business),
@@ -37,7 +40,7 @@ class SaVendorsView extends GetView<SaVendorsController> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
-              onChanged: (v) => controller.searchQuery.value = v,
+              onChanged: (v) => controller.setSearchQuery(v),
               decoration: InputDecoration(
                 hintText: 'Search vendors...'.tr,
                 prefixIcon: const Icon(Icons.search),
@@ -47,53 +50,53 @@ class SaVendorsView extends GetView<SaVendorsController> {
           // ── Filter chips ──
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Obx(() => SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      'all', 'pending', 'approved', 'suspended', 'rejected'
-                    ].map((f) {
-                      final selected = controller.selectedFilter.value == f;
-                      return GestureDetector(
-                        onTap: () => controller.selectedFilter.value = f,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? AppColors.primaryOrange
-                                : AppColors.darkSurface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: selected
-                                  ? AppColors.primaryOrange
-                                  : AppColors.divider,
-                            ),
-                          ),
-                          child: Text(
-                            f.tr,
-                            style: TextStyle(
-                              color: selected
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                              fontSize: 13,
-                              fontWeight: selected
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
-                          ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  'all', 'pending', 'approved', 'suspended', 'rejected'
+                ].map((f) {
+                  final selected = controller.selectedFilter == f;
+                  return GestureDetector(
+                    onTap: () => controller.setFilter(f),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? AppColors.primaryOrange
+                            : AppColors.darkSurface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: selected
+                              ? AppColors.primaryOrange
+                              : AppColors.divider,
                         ),
-                      );
-                    }).toList(),
-                  ),
-                )),
+                      ),
+                      child: Text(
+                        f.tr,
+                        style: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : AppColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
           // ── List ──
           Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
+            child: Builder(builder: (_) {
+              if (controller.isLoading) {
                 return const Center(
                     child: CircularProgressIndicator(
                         color: AppColors.primaryOrange));
@@ -122,7 +125,7 @@ class SaVendorsView extends GetView<SaVendorsController> {
                   padding: const EdgeInsets.all(16),
                   itemCount: list.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _vendorCard(list[i]),
+                  itemBuilder: (_, i) => _vendorCard(context, controller, list[i]),
                 ),
               );
             }),
@@ -132,7 +135,7 @@ class SaVendorsView extends GetView<SaVendorsController> {
     );
   }
 
-  Widget _vendorCard(Map<String, dynamic> vendor) {
+  Widget _vendorCard(BuildContext context, SaVendorsController controller, Map<String, dynamic> vendor) {
     final status = vendor['status'] ?? 'pending';
     final statusColor = _statusColor(status);
     final vendorId = vendor['id']?.toString() ?? '';
@@ -143,7 +146,7 @@ class SaVendorsView extends GetView<SaVendorsController> {
     final typeStr = (vendor['type'] ?? '').toString();
 
     return GestureDetector(
-      onTap: () => Get.toNamed(
+      onTap: () => AppNavigator.toNamed(
         AppRoutes.saVendorDetail,
         arguments: {'vendor_id': vendorId, 'vendor_name': vendorName},
       ),

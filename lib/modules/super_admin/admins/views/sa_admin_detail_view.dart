@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:get/get.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../data/providers/api_provider.dart';
@@ -363,12 +364,12 @@ class _SaAdminDetailViewState extends State<SaAdminDetailView> {
                 body: {'admin_id': widget.adminId},
               );
               if (res.success) {
-                Get.snackbar('Success'.tr, res.message?.tr ?? 'Status updated'.tr,
+                AppNavigator.snackbar('Success'.tr, res.message?.tr ?? 'Status updated'.tr,
                     backgroundColor: const Color(0xFF4CAF50),
                     colorText: const Color(0xFFFFFFFF));
                 _fetch();
               } else {
-                Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+                AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
                     backgroundColor: const Color(0xFFF44336),
                     colorText: const Color(0xFFFFFFFF));
               }
@@ -408,7 +409,7 @@ class _SaAdminDetailViewState extends State<SaAdminDetailView> {
   }
 
   void _confirmDeleteFromDetail() {
-    Get.dialog(AlertDialog(
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title: Text('Delete Admin'.tr, style: const TextStyle(color: Colors.white)),
       content: Column(
@@ -444,22 +445,22 @@ class _SaAdminDetailViewState extends State<SaAdminDetailView> {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+        TextButton(onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () async {
-            Get.back();
+            AppNavigator.back();
             final res = await ApiProvider.post(
               ApiEndpoints.saAdminsDelete,
               body: {'admin_id': widget.adminId},
             );
             if (res.success) {
-              Get.snackbar('Done'.tr, res.message?.tr ?? 'Admin removed'.tr,
+              AppNavigator.snackbar('Done'.tr, res.message?.tr ?? 'Admin removed'.tr,
                   backgroundColor: const Color(0xFF4CAF50),
                   colorText: const Color(0xFFFFFFFF));
-              Get.back(result: true);
+              AppNavigator.back(result: true);
             } else {
-              Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed to remove'.tr,
+              AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed to remove'.tr,
                   backgroundColor: const Color(0xFFF44336),
                   colorText: const Color(0xFFFFFFFF));
             }
@@ -530,7 +531,7 @@ class _SaAdminDetailViewState extends State<SaAdminDetailView> {
           IconButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: value));
-              Get.snackbar('Copied'.tr, '$label ' + 'copied'.tr,
+              AppNavigator.snackbar('Copied'.tr, '$label ' + 'copied'.tr,
                   backgroundColor: AppColors.cardDark,
                   colorText: Colors.white,
                   duration: const Duration(seconds: 1));

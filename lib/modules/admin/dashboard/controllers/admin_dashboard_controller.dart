@@ -1,69 +1,76 @@
-import 'package:get/get.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../app/constants/app_constants.dart';
 import '../../../../data/providers/api_provider.dart';
 
-class AdminDashboardController extends GetxController {
-  final isLoading = false.obs;
+final adminDashboardProvider = ChangeNotifierProvider<AdminDashboardController>((ref) {
+  return AdminDashboardController.to;
+});
+
+class AdminDashboardController extends ChangeNotifier {
+  static AdminDashboardController? _instance;
+  static AdminDashboardController get to => _instance ??= AdminDashboardController();
+
+  bool isLoading = false;
 
   // Stats
-  final pendingOrders = 0.obs;
-  final activeVendors = 0.obs;
-  final todayOrders = 0.obs;
-  final todayRevenue = 0.0.obs;
-  final todayDelivered = 0.obs;
-  final todayCancelled = 0.obs;
-  final ordersByStatus = <String, int>{}.obs;
-  final recentOrders = <Map<String, dynamic>>[].obs;
+  int pendingOrders = 0;
+  int activeVendors = 0;
+  int todayOrders = 0;
+  double todayRevenue = 0.0;
+  int todayDelivered = 0;
+  int todayCancelled = 0;
+  Map<String, int> ordersByStatus = {};
+  List<Map<String, dynamic>> recentOrders = [];
 
   // Delivery profit (Admin's earnings) — from delivered orders only
-  final totalDeliveryEarnings = 0.0.obs;
-  final todayDeliveryEarnings = 0.0.obs;
-  final totalCollectedFromUsers = 0.0.obs;
-  final totalPaidToVendors = 0.0.obs;
-  final saOwed = 0.0.obs;
+  double totalDeliveryEarnings = 0.0;
+  double todayDeliveryEarnings = 0.0;
+  double totalCollectedFromUsers = 0.0;
+  double totalPaidToVendors = 0.0;
+  double saOwed = 0.0;
 
   final fmt = NumberFormat.currency(symbol: '₪', decimalDigits: 2);
 
-  @override
-  void onInit() {
-    super.onInit();
+  AdminDashboardController() {
     fetchAll();
   }
 
   Future<void> fetchAll() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
       final statsRes = await ApiProvider.get(ApiEndpoints.adminDashboardStats);
       if (statsRes.success && statsRes.data != null) {
         final d = statsRes.data as Map<String, dynamic>;
-        pendingOrders.value = (d['pending_orders'] ?? 0) as int;
-        activeVendors.value = (d['active_vendors'] ?? 0) as int;
+        pendingOrders = (d['pending_orders'] ?? 0) as int;
+        activeVendors = (d['active_vendors'] ?? 0) as int;
         final today = d['today'] as Map<String, dynamic>? ?? {};
-        todayOrders.value = (today['orders'] ?? 0) as int;
-        todayRevenue.value =
+        todayOrders = (today['orders'] ?? 0) as int;
+        todayRevenue =
             double.tryParse(today['revenue']?.toString() ?? '0') ?? 0;
-        todayDelivered.value = (today['delivered'] ?? 0) as int;
-        todayCancelled.value = (today['cancelled'] ?? 0) as int;
-        ordersByStatus.value =
+        todayDelivered = (today['delivered'] ?? 0) as int;
+        todayCancelled = (today['cancelled'] ?? 0) as int;
+        ordersByStatus =
             Map<String, int>.from(d['orders_by_status'] ?? {});
 
         // Delivery profit
         final dp = d['delivery_profit'] as Map<String, dynamic>? ?? {};
-        totalDeliveryEarnings.value = double.tryParse(
+        totalDeliveryEarnings = double.tryParse(
                 dp['total_delivery_earnings']?.toString() ?? '0') ??
             0;
-        todayDeliveryEarnings.value = double.tryParse(
+        todayDeliveryEarnings = double.tryParse(
                 dp['today_delivery_earnings']?.toString() ?? '0') ??
             0;
-        totalCollectedFromUsers.value = double.tryParse(
+        totalCollectedFromUsers = double.tryParse(
                 dp['total_collected_from_users']?.toString() ?? '0') ??
             0;
-        totalPaidToVendors.value = double.tryParse(
+        totalPaidToVendors = double.tryParse(
                 dp['total_paid_to_vendors']?.toString() ?? '0') ??
             0;
-        saOwed.value =
+        saOwed =
             double.tryParse(dp['sa_owed']?.toString() ?? '0') ?? 0;
       }
 
@@ -71,11 +78,12 @@ class AdminDashboardController extends GetxController {
           await ApiProvider.get(ApiEndpoints.adminDashboardRecentOrders);
       if (recentRes.success && recentRes.data != null) {
         final od = recentRes.data as Map<String, dynamic>;
-        recentOrders.value =
+        recentOrders =
             List<Map<String, dynamic>>.from(od['orders'] as List? ?? []);
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 

@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/app_constants.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../shared/widgets/order_status_badge.dart';
 import '../controllers/sa_orders_controller.dart';
 
-class SaOrdersView extends GetView<SaOrdersController> {
+class SaOrdersView extends ConsumerWidget {
   const SaOrdersView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(SaOrdersController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(saOrdersProvider);
     final currFmt = NumberFormat.currency(symbol: '₪', decimalDigits: 2);
 
     return Scaffold(
@@ -33,7 +35,7 @@ class SaOrdersView extends GetView<SaOrdersController> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
-              onChanged: (v) => controller.searchQuery.value = v,
+              onChanged: (v) => controller.setSearchQuery(v),
               decoration: InputDecoration(
                 hintText: 'Search order # or customer...'.tr,
                 prefixIcon: const Icon(Icons.search),
@@ -43,54 +45,54 @@ class SaOrdersView extends GetView<SaOrdersController> {
           // ── Status filter chips ──
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Obx(() => SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: controller.statusFilters.map((f) {
-                      final selected = controller.selectedStatus.value == f;
-                      final label = f == 'all'
-                          ? 'All'.tr
-                          : AppConstants.orderStatusLabel(f);
-                      return GestureDetector(
-                        onTap: () => controller.selectedStatus.value = f,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? AppColors.primaryOrange
-                                : AppColors.darkSurface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: selected
-                                  ? AppColors.primaryOrange
-                                  : AppColors.divider,
-                            ),
-                          ),
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              color: selected
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                              fontSize: 12,
-                              fontWeight: selected
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
-                          ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: controller.statusFilters.map((f) {
+                  final selected = controller.selectedStatus == f;
+                  final label = f == 'all'
+                      ? 'All'.tr
+                      : AppConstants.orderStatusLabel(f);
+                  return GestureDetector(
+                    onTap: () => controller.setStatus(f),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? AppColors.primaryOrange
+                            : AppColors.darkSurface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: selected
+                              ? AppColors.primaryOrange
+                              : AppColors.divider,
                         ),
-                      );
-                    }).toList(),
-                  ),
-                )),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
           // ── List ──
           Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
+            child: Builder(builder: (_) {
+              if (controller.isLoading) {
                 return const Center(
                     child: CircularProgressIndicator(
                         color: AppColors.primaryOrange));
@@ -119,7 +121,7 @@ class SaOrdersView extends GetView<SaOrdersController> {
                   padding: const EdgeInsets.all(16),
                   itemCount: list.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _orderCard(list[i], currFmt),
+                  itemBuilder: (_, i) => _orderCard(controller, list[i], currFmt),
                 ),
               );
             }),
@@ -129,13 +131,13 @@ class SaOrdersView extends GetView<SaOrdersController> {
     );
   }
 
-  Widget _orderCard(Map<String, dynamic> order, NumberFormat fmt) {
+  Widget _orderCard(SaOrdersController controller, Map<String, dynamic> order, NumberFormat fmt) {
     final status = order['status'] ?? '';
     final canCancel = status != AppConstants.orderDelivered &&
         status != AppConstants.orderCancelled;
 
     return GestureDetector(
-      onTap: () => Get.toNamed(AppRoutes.saOrderDetail, arguments: {
+      onTap: () => AppNavigator.toNamed(AppRoutes.saOrderDetail, arguments: {
         'order_id': order['id']?.toString() ?? '',
         'order_number': order['order_number'] ?? '',
       }),
@@ -191,7 +193,7 @@ class SaOrdersView extends GetView<SaOrdersController> {
               const Spacer(),
               if (canCancel)
                 TextButton.icon(
-                  onPressed: () => _showCancelDialog(order['id']),
+                  onPressed: () => _showCancelDialog(controller, order['id']),
                   icon: const Icon(Icons.cancel_outlined,
                       size: 16, color: AppColors.error),
                   label: Text('Cancel'.tr,
@@ -239,9 +241,9 @@ class SaOrdersView extends GetView<SaOrdersController> {
     );
   }
 
-  void _showCancelDialog(String orderId) {
+  void _showCancelDialog(SaOrdersController controller, String orderId) {
     final reasonCtrl = TextEditingController();
-    Get.dialog(AlertDialog(
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title:
           Text('Cancel Order'.tr, style: const TextStyle(color: Colors.white)),
@@ -260,11 +262,11 @@ class SaOrdersView extends GetView<SaOrdersController> {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+        TextButton(onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
+            AppNavigator.back();
             controller.cancelOrder(orderId, reasonCtrl.text);
           },
           child: Text('Confirm Cancel'.tr),

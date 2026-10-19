@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/providers/api_provider.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/app_constants.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../shared/widgets/stat_card.dart';
 import '../../../../shared/widgets/order_status_badge.dart';
 import '../../../../shared/widgets/notification_bell.dart';
 import '../controllers/admin_dashboard_controller.dart';
 
-class AdminDashboardView extends GetView<AdminDashboardController> {
+class AdminDashboardView extends ConsumerWidget {
   const AdminDashboardView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(AdminDashboardController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(adminDashboardProvider);
     final fmt = NumberFormat.currency(symbol: '₪', decimalDigits: 2);
     final userName = ApiProvider.storedUserName ?? 'Admin';
 
@@ -30,8 +32,8 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
         ],
       ),
       drawer: const AppDrawer(currentRoute: AppRoutes.adminDashboard),
-      body: Obx(() {
-        if (controller.isLoading.value) {
+      body: Builder(builder: (context) {
+        if (controller.isLoading) {
           return const Center(child: CircularProgressIndicator(color: AppColors.primaryOrange));
         }
         return RefreshIndicator(
@@ -73,153 +75,157 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
                 const SizedBox(height: 24),
 
                 // ── Pending orders alert ──
-                Obx(() => controller.pendingOrders.value > 0
-                    ? GestureDetector(
-                        onTap: () => Get.toNamed(AppRoutes.adminOrders),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryOrange.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.primaryOrange.withValues(alpha: 0.5)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.notification_important, color: AppColors.primaryOrange),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  '${controller.pendingOrders.value} ${'orders waiting for confirmation!'.tr}',
-                                  style: const TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              Text('View →'.tr, style: const TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink()),
-
-                // ── Delivery Profit Banner (from delivered orders only) ──
-                Obx(() => Container(
+                if (controller.pendingOrders > 0)
+                  GestureDetector(
+                    onTap: () => AppNavigator.toNamed(AppRoutes.adminOrders),
+                    child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(14),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
+                        color: AppColors.primaryOrange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.primaryOrange.withValues(alpha: 0.5)),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Delivery Profit'.tr,
-                                      style: const TextStyle(color: Colors.white70, fontSize: 13),
-                                    ),
-                                    Text(
-                                      fmt.format(controller.totalDeliveryEarnings.value),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${'Today'.tr}: ${fmt.format(controller.todayDeliveryEarnings.value)}',
-                                      style: const TextStyle(color: Colors.white70, fontSize: 13),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.delivery_dining, color: Colors.white38, size: 56),
-                            ],
+                          const Icon(Icons.notification_important, color: AppColors.primaryOrange),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '${controller.pendingOrders} ${'orders waiting for confirmation!'.tr}',
+                              style: const TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.w600),
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          Container(height: 1, color: Colors.white.withValues(alpha: 0.2)),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _profitChip(
-                                  Icons.account_balance,
-                                  'SA Owed'.tr,
-                                  fmt.format(controller.saOwed.value),
+                          Text('View →'.tr, style: const TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // ── Delivery Profit Banner (from delivered orders only) ──
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Delivery Profit'.tr,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _profitChip(
-                                  Icons.payments,
-                                  'Paid to Vendors'.tr,
-                                  fmt.format(controller.totalPaidToVendors.value),
+                                Text(
+                                  fmt.format(controller.totalDeliveryEarnings),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${'Today'.tr}: ${fmt.format(controller.todayDeliveryEarnings)}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.delivery_dining, color: Colors.white38, size: 56),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(height: 1, color: Colors.white.withValues(alpha: 0.2)),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _profitChip(
+                              Icons.account_balance,
+                              'SA Owed'.tr,
+                              fmt.format(controller.saOwed),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _profitChip(
+                              Icons.payments,
+                              'Paid to Vendors'.tr,
+                              fmt.format(controller.totalPaidToVendors),
+                            ),
                           ),
                         ],
                       ),
-                    )),
+                    ],
+                  ),
+                ),
 
                 // ── Today stats ──
                 Text('Today'.tr, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.1,
-                  children: [
-                    StatCard(
-                      title: 'Orders Today'.tr,
-                      value: '${controller.todayOrders.value}',
-                      onTap: () => Get.toNamed(AppRoutes.adminOrders),
-                    ),
-                    StatCard(
-                      title: 'Revenue Today'.tr,
-                      value: fmt.format(controller.todayRevenue.value),
-                      onTap: () => Get.toNamed(AppRoutes.adminOrders),
-                    ),
-                    StatCard(
-                      title: 'Delivered'.tr,
-                      value: '${controller.todayDelivered.value}',
-                      onTap: () => Get.toNamed(AppRoutes.adminOrders),
-                    ),
-                    StatCard(
-                      title: 'Cancelled'.tr,
-                      value: '${controller.todayCancelled.value}',
-                      onTap: () => Get.toNamed(AppRoutes.adminOrders),
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (ctx, _) {
+                    final w = MediaQuery.of(ctx).size.width;
+                    final cols = w > 1200 ? 4 : (w > 800 ? 3 : 2);
+                    final ratio = w > 1200 ? 1.6 : (w > 800 ? 1.4 : 1.1);
+                    return GridView.count(
+                      crossAxisCount: cols,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: ratio,
+                      children: [
+                        StatCard(
+                          title: 'Orders Today'.tr,
+                          value: '${controller.todayOrders}',
+                          onTap: () => AppNavigator.toNamed(AppRoutes.adminOrders),
+                        ),
+                        StatCard(
+                          title: 'Revenue Today'.tr,
+                          value: fmt.format(controller.todayRevenue),
+                          onTap: () => AppNavigator.toNamed(AppRoutes.adminOrders),
+                        ),
+                        StatCard(
+                          title: 'Delivered'.tr,
+                          value: '${controller.todayDelivered}',
+                          onTap: () => AppNavigator.toNamed(AppRoutes.adminOrders),
+                        ),
+                        StatCard(
+                          title: 'Cancelled'.tr,
+                          value: '${controller.todayCancelled}',
+                          onTap: () => AppNavigator.toNamed(AppRoutes.adminOrders),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
 
                 // ── Orders by status ──
                 Text('Orders by Status'.tr, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
-                Obx(() {
-                  final map = controller.ordersByStatus;
-                  if (map.isEmpty) return const SizedBox.shrink();
-                  return Container(
+                if (controller.ordersByStatus.isNotEmpty)
+                  Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(color: AppColors.cardDark, borderRadius: BorderRadius.circular(14)),
                     child: Column(
-                      children: map.entries.map((e) => GestureDetector(
-                        onTap: () => Get.toNamed(AppRoutes.adminOrders),
+                      children: controller.ordersByStatus.entries.map((e) => GestureDetector(
+                        onTap: () => AppNavigator.toNamed(AppRoutes.adminOrders),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Row(
@@ -236,8 +242,7 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
                         ),
                       )).toList(),
                     ),
-                  );
-                }),
+                  ),
                 const SizedBox(height: 24),
 
                 // ── Recent orders ──
@@ -247,7 +252,7 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
                     children: [
                       Text('Recent Orders'.tr, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
                       TextButton(
-                        onPressed: () => Get.toNamed(AppRoutes.adminOrders),
+                        onPressed: () => AppNavigator.toNamed(AppRoutes.adminOrders),
                         child: Text('View All'.tr),
                       ),
                     ],
@@ -295,7 +300,7 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
 
   Widget _orderTile(Map<String, dynamic> o, NumberFormat fmt) {
     return GestureDetector(
-      onTap: () => Get.toNamed(AppRoutes.adminOrderDetail, arguments: {
+      onTap: () => AppNavigator.toNamed(AppRoutes.adminOrderDetail, arguments: {
         'order_id': o['id']?.toString() ?? o['order_id']?.toString() ?? '',
         'order_number': o['order_number'] ?? '',
       }),

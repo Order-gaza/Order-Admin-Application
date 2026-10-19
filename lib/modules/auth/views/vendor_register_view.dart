@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/constants/api_endpoints.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../data/providers/api_provider.dart';
+import '../../../shared/localization/app_translations.dart';
+import '../../../shared/utils/app_navigator.dart';
 
 /// Static location data for vendor registration (same as order app)
 class _LocationData {
@@ -98,133 +99,169 @@ class _LocationData {
 }
 
 /// Vendor self-registration form
-class VendorRegisterView extends StatelessWidget {
+class VendorRegisterView extends StatefulWidget {
   const VendorRegisterView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Account fields
-    final nameCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
-    final confirmPassCtrl = TextEditingController();
-    final phoneCtrl = TextEditingController();
+  State<VendorRegisterView> createState() => _VendorRegisterViewState();
+}
 
-    // Business fields
-    final bizNameCtrl = TextEditingController();
-    final bizPhoneCtrl = TextEditingController();
+class _VendorRegisterViewState extends State<VendorRegisterView> {
+  // Account fields
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _emailCtrl;
+  late final TextEditingController _passCtrl;
+  late final TextEditingController _confirmPassCtrl;
+  late final TextEditingController _phoneCtrl;
 
-    final bizType = 'restaurant'.obs;
-    final selectedCity = Rxn<String>();
-    final selectedNeighborhood = Rxn<String>();
-    final neighborhoods = <String>[].obs;
-    final isLoading = false.obs;
-    final error = ''.obs;
-    final obscure1 = true.obs;
-    final obscure2 = true.obs;
+  // Business fields
+  late final TextEditingController _bizNameCtrl;
+  late final TextEditingController _bizPhoneCtrl;
 
-    void onCityChanged(String? city) {
-      selectedCity.value = city;
-      selectedNeighborhood.value = null;
-      neighborhoods.value =
-          city != null ? _LocationData.getNeighborhoods(city) : [];
+  String _bizType = 'restaurant';
+  String? _selectedCity;
+  String? _selectedNeighborhood;
+  List<String> _neighborhoods = [];
+  late final TextEditingController _detailedAddrCtrl;
+  bool _isLoading = false;
+  String _error = '';
+  bool _obscure1 = true;
+  bool _obscure2 = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController();
+    _emailCtrl = TextEditingController();
+    _passCtrl = TextEditingController();
+    _confirmPassCtrl = TextEditingController();
+    _phoneCtrl = TextEditingController();
+    _bizNameCtrl = TextEditingController();
+    _bizPhoneCtrl = TextEditingController();
+    _detailedAddrCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    _confirmPassCtrl.dispose();
+    _phoneCtrl.dispose();
+    _bizNameCtrl.dispose();
+    _bizPhoneCtrl.dispose();
+    _detailedAddrCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onCityChanged(String? city) {
+    setState(() {
+      _selectedCity = city;
+      _selectedNeighborhood = null;
+      _neighborhoods = city != null ? _LocationData.getNeighborhoods(city) : [];
+    });
+  }
+
+  Future<void> _register() async {
+    // Validation
+    if (_nameCtrl.text.trim().isEmpty ||
+        _emailCtrl.text.trim().isEmpty ||
+        _passCtrl.text.isEmpty ||
+        _confirmPassCtrl.text.isEmpty ||
+        _phoneCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'All account fields are required'.tr);
+      return;
+    }
+    if (_passCtrl.text.length < 6) {
+      setState(() => _error = 'Password must be at least 6 characters'.tr);
+      return;
+    }
+    if (_passCtrl.text != _confirmPassCtrl.text) {
+      setState(() => _error = 'Passwords do not match'.tr);
+      return;
+    }
+    if (_bizNameCtrl.text.trim().isEmpty ||
+        _bizPhoneCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'All business fields are required'.tr);
+      return;
+    }
+    if (_selectedCity == null || _selectedCity!.isEmpty) {
+      setState(() => _error = 'يجب اختيار المدينة'.tr);
+      return;
+    }
+    if (_selectedNeighborhood == null || _selectedNeighborhood!.isEmpty) {
+      setState(() => _error = 'يجب اختيار الحي'.tr);
+      return;
     }
 
-    Future<void> register() async {
-      // Validation
-      if (nameCtrl.text.trim().isEmpty ||
-          emailCtrl.text.trim().isEmpty ||
-          passCtrl.text.isEmpty ||
-          confirmPassCtrl.text.isEmpty ||
-          phoneCtrl.text.trim().isEmpty) {
-        error.value = 'All account fields are required'.tr;
-        return;
-      }
-      if (passCtrl.text.length < 6) {
-        error.value = 'Password must be at least 6 characters'.tr;
-        return;
-      }
-      if (passCtrl.text != confirmPassCtrl.text) {
-        error.value = 'Passwords do not match'.tr;
-        return;
-      }
-      if (bizNameCtrl.text.trim().isEmpty ||
-          bizPhoneCtrl.text.trim().isEmpty) {
-        error.value = 'All business fields are required'.tr;
-        return;
-      }
-      if (selectedCity.value == null || selectedCity.value!.isEmpty) {
-        error.value = 'يجب اختيار المدينة'.tr;
-        return;
-      }
-      if (selectedNeighborhood.value == null ||
-          selectedNeighborhood.value!.isEmpty) {
-        error.value = 'يجب اختيار الحي'.tr;
-        return;
-      }
+    setState(() {
+      _isLoading = true;
+      _error = '';
+    });
 
-      isLoading.value = true;
-      error.value = '';
+    final zone = _LocationData.getZone(_selectedCity!) ?? 'north';
+    final res = await ApiProvider.post(
+      ApiEndpoints.registerVendor,
+      body: {
+        'name': _nameCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
+        'password': _passCtrl.text,
+        'confirm_password': _confirmPassCtrl.text,
+        'phone': _phoneCtrl.text.trim(),
+        'business_name': _bizNameCtrl.text.trim(),
+        'business_type': _bizType,
+        'business_phone': _bizPhoneCtrl.text.trim(),
+        'business_address': '$_selectedCity - $_selectedNeighborhood',
+        'business_city': _selectedCity!,
+        'business_neighborhood': _selectedNeighborhood!,
+        'detailed_address': _detailedAddrCtrl.text.trim(),
+        'delivery_zone': zone,
+        'latitude': '31.50000000',
+        'longitude': '34.47000000',
+      },
+    );
 
-      final zone = _LocationData.getZone(selectedCity.value!) ?? 'north';
-      final res = await ApiProvider.post(
-        ApiEndpoints.registerVendor,
-        body: {
-          'name': nameCtrl.text.trim(),
-          'email': emailCtrl.text.trim(),
-          'password': passCtrl.text,
-          'confirm_password': confirmPassCtrl.text,
-          'phone': phoneCtrl.text.trim(),
-          'business_name': bizNameCtrl.text.trim(),
-          'business_type': bizType.value,
-          'business_phone': bizPhoneCtrl.text.trim(),
-          'business_address':
-              '${selectedCity.value} - ${selectedNeighborhood.value}',
-          'business_city': selectedCity.value!,
-          'business_neighborhood': selectedNeighborhood.value!,
-          'delivery_zone': zone,
-          'latitude': '31.50000000',
-          'longitude': '34.47000000',
-        },
-      );
+    if (!mounted) return;
 
-      isLoading.value = false;
+    setState(() => _isLoading = false);
 
-      if (res.success) {
-        Get.dialog(
-          AlertDialog(
-            backgroundColor: AppColors.darkSurface,
-            title: Row(
-              children: [
-                const Icon(Icons.check_circle, color: AppColors.success),
-                const SizedBox(width: 8),
-                Text('Submitted!'.tr,
-                    style: const TextStyle(color: Colors.white)),
-              ],
-            ),
-            content: Text(
-              'Your vendor registration has been submitted.\n\n'
-              'A Super Admin will review your application. '
-              'You will be able to login once your account is approved.'.tr,
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () {
-                  Get.back();
-                  Get.offAllNamed(AppRoutes.login);
-                },
-                child: Text('Go to Login'.tr),
-              ),
+    if (res.success) {
+      AppNavigator.dialog(
+        AlertDialog(
+          backgroundColor: AppColors.darkSurface,
+          title: Row(
+            children: [
+              const Icon(Icons.check_circle, color: AppColors.success),
+              const SizedBox(width: 8),
+              Text('Submitted!'.tr,
+                  style: const TextStyle(color: Colors.white)),
             ],
           ),
-          barrierDismissible: false,
-        );
-      } else {
-        error.value = res.message?.tr ?? 'Registration failed'.tr;
-      }
+          content: Text(
+            'Your vendor registration has been submitted.\n\n'
+            'A Super Admin will review your application. '
+            'You will be able to login once your account is approved.'.tr,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                AppNavigator.back();
+                AppNavigator.offAllNamed(AppRoutes.login);
+              },
+              child: Text('Go to Login'.tr),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
+      );
+    } else {
+      setState(() => _error = res.message?.tr ?? 'Registration failed'.tr);
     }
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -274,51 +311,51 @@ class VendorRegisterView extends StatelessWidget {
             const SizedBox(height: 12),
             _card(
               children: [
-                _tf(nameCtrl, 'Full Name'.tr, Icons.person),
+                _tf(_nameCtrl, 'Full Name'.tr, Icons.person),
                 const SizedBox(height: 12),
-                _tf(emailCtrl, 'Email'.tr, Icons.email_outlined,
+                _tf(_emailCtrl, 'Email'.tr, Icons.email_outlined,
                     type: TextInputType.emailAddress),
                 const SizedBox(height: 12),
-                _tf(phoneCtrl, 'Phone Number'.tr, Icons.phone,
+                _tf(_phoneCtrl, 'Phone Number'.tr, Icons.phone,
                     type: TextInputType.phone),
                 const SizedBox(height: 12),
-                Obx(() => TextField(
-                      controller: passCtrl,
-                      obscureText: obscure1.value,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Password'.tr,
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            obscure1.value
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: AppColors.textSecondary,
-                          ),
-                          onPressed: () => obscure1.value = !obscure1.value,
-                        ),
+                TextField(
+                  controller: _passCtrl,
+                  obscureText: _obscure1,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Password'.tr,
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscure1
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppColors.textSecondary,
                       ),
-                    )),
+                      onPressed: () => setState(() => _obscure1 = !_obscure1),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 12),
-                Obx(() => TextField(
-                      controller: confirmPassCtrl,
-                      obscureText: obscure2.value,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Confirm Password'.tr,
-                        prefixIcon: const Icon(Icons.lock_reset),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            obscure2.value
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: AppColors.textSecondary,
-                          ),
-                          onPressed: () => obscure2.value = !obscure2.value,
-                        ),
+                TextField(
+                  controller: _confirmPassCtrl,
+                  obscureText: _obscure2,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Confirm Password'.tr,
+                    prefixIcon: const Icon(Icons.lock_reset),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscure2
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppColors.textSecondary,
                       ),
-                    )),
+                      onPressed: () => setState(() => _obscure2 = !_obscure2),
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -328,7 +365,7 @@ class VendorRegisterView extends StatelessWidget {
             const SizedBox(height: 12),
             _card(
               children: [
-                _tf(bizNameCtrl, 'Business Name'.tr, Icons.business),
+                _tf(_bizNameCtrl, 'Business Name'.tr, Icons.business),
                 const SizedBox(height: 12),
 
                 // ── Business Type Picker ──
@@ -336,31 +373,31 @@ class VendorRegisterView extends StatelessWidget {
                     style: const TextStyle(
                         color: AppColors.textSecondary, fontSize: 13)),
                 const SizedBox(height: 8),
-                Obx(() => Wrap(
-                      spacing: 8,
-                      children: ['restaurant', 'store', 'cafe'].map((t) {
-                        final sel = bizType.value == t;
-                        return ChoiceChip(
-                          label: Text(t.tr),
-                          selected: sel,
-                          onSelected: (_) => bizType.value = t,
-                          selectedColor: AppColors.primaryOrange,
-                          backgroundColor: AppColors.cardDark,
-                          labelStyle: TextStyle(
-                            color: sel ? Colors.white : AppColors.textSecondary,
-                            fontWeight:
-                                sel ? FontWeight.w600 : FontWeight.normal,
-                          ),
-                          side: BorderSide(
-                            color: sel
-                                ? AppColors.primaryOrange
-                                : AppColors.divider,
-                          ),
-                        );
-                      }).toList(),
-                    )),
+                Wrap(
+                  spacing: 8,
+                  children: ['restaurant', 'store', 'cafe'].map((t) {
+                    final sel = _bizType == t;
+                    return ChoiceChip(
+                      label: Text(t.tr),
+                      selected: sel,
+                      onSelected: (_) => setState(() => _bizType = t),
+                      selectedColor: AppColors.primaryOrange,
+                      backgroundColor: AppColors.cardDark,
+                      labelStyle: TextStyle(
+                        color: sel ? Colors.white : AppColors.textSecondary,
+                        fontWeight:
+                            sel ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      side: BorderSide(
+                        color: sel
+                            ? AppColors.primaryOrange
+                            : AppColors.divider,
+                      ),
+                    );
+                  }).toList(),
+                ),
 
-                _tf(bizPhoneCtrl, 'Business Phone'.tr, Icons.phone_android,
+                _tf(_bizPhoneCtrl, 'Business Phone'.tr, Icons.phone_android,
                     type: TextInputType.phone),
               ],
             ),
@@ -375,78 +412,77 @@ class VendorRegisterView extends StatelessWidget {
                     style: const TextStyle(
                         color: AppColors.textSecondary, fontSize: 13)),
                 const SizedBox(height: 8),
-                Obx(() => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: selectedCity.value != null
-                              ? _zoneColor(
-                                  _LocationData.getZone(selectedCity.value!))
-                              : AppColors.divider,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          dropdownColor: AppColors.darkSurface,
-                          value: selectedCity.value,
-                          hint: Text('اختر المدينة'.tr,
-                              style: const TextStyle(
-                                  color: AppColors.textSecondary)),
-                          items: _LocationData.getAllCities().map((c) {
-                            return DropdownMenuItem(
-                              value: c['name'],
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: _zoneColor(c['zone'])
-                                          .withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(c['zoneAr']!,
-                                        style: TextStyle(
-                                            color: _zoneColor(c['zone']),
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600)),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(c['name']!,
-                                      style: const TextStyle(
-                                          color: Colors.white, fontSize: 14)),
-                                ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.darkSurface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _selectedCity != null
+                          ? _zoneColor(
+                              _LocationData.getZone(_selectedCity!))
+                          : AppColors.divider,
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      dropdownColor: AppColors.darkSurface,
+                      value: _selectedCity,
+                      hint: Text('اختر المدينة'.tr,
+                          style: const TextStyle(
+                              color: AppColors.textSecondary)),
+                      items: _LocationData.getAllCities().map((c) {
+                        return DropdownMenuItem(
+                          value: c['name'],
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _zoneColor(c['zone'])
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(c['zoneAr']!,
+                                    style: TextStyle(
+                                        color: _zoneColor(c['zone']),
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600)),
                               ),
-                            );
-                          }).toList(),
-                          onChanged: (v) => onCityChanged(v),
-                        ),
-                      ),
-                    )),
+                              const SizedBox(width: 8),
+                              Text(c['name']!,
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 14)),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (v) => _onCityChanged(v),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 14),
                 Text('الحي / المنطقة *'.tr,
                     style: const TextStyle(
                         color: AppColors.textSecondary, fontSize: 13)),
                 const SizedBox(height: 8),
-                Obx(() {
-                  if (selectedCity.value == null) {
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: Text('اختر المدينة أولاً'.tr,
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 13)),
-                    );
-                  }
-                  return Container(
+                if (_selectedCity == null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.darkSurface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Text('اختر المدينة أولاً'.tr,
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 13)),
+                  )
+                else
+                  Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       color: AppColors.darkSurface,
@@ -457,11 +493,11 @@ class VendorRegisterView extends StatelessWidget {
                       child: DropdownButton<String>(
                         isExpanded: true,
                         dropdownColor: AppColors.darkSurface,
-                        value: selectedNeighborhood.value,
+                        value: _selectedNeighborhood,
                         hint: Text('اختر الحي'.tr,
                             style: const TextStyle(
                                 color: AppColors.textSecondary)),
-                        items: neighborhoods
+                        items: _neighborhoods
                             .map((n) => DropdownMenuItem(
                                   value: n,
                                   child: Text(n,
@@ -469,20 +505,31 @@ class VendorRegisterView extends StatelessWidget {
                                           color: Colors.white)),
                                 ))
                             .toList(),
-                        onChanged: (v) =>
-                            selectedNeighborhood.value = v,
+                        onChanged: (v) => setState(() => _selectedNeighborhood = v),
                       ),
                     ),
-                  );
-                }),
+                  ),
+                const SizedBox(height: 14),
+                Text('Detailed Address'.tr,
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 13)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _detailedAddrCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Street name, building, floor...'.tr,
+                    prefixIcon: const Icon(Icons.edit_location_alt_outlined),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 20),
 
             // ── Error ──
-            Obx(() {
-              if (error.value.isEmpty) return const SizedBox.shrink();
-              return Container(
+            if (_error.isNotEmpty)
+              Container(
                 width: double.infinity,
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(12),
@@ -492,34 +539,33 @@ class VendorRegisterView extends StatelessWidget {
                   border: Border.all(
                       color: AppColors.error.withValues(alpha: 0.3)),
                 ),
-                child: Text(error.value,
+                child: Text(_error,
                     style:
                         const TextStyle(color: AppColors.error, fontSize: 13)),
-              );
-            }),
+              ),
 
             // ── Submit button ──
-            Obx(() => SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: isLoading.value ? null : register,
-                    child: isLoading.value
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2.5))
-                        : Text('Submit Registration'.tr,
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                )),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _register,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.5))
+                    : Text('Submit Registration'.tr,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+            ),
 
             const SizedBox(height: 16),
             Center(
               child: TextButton(
-                onPressed: () => Get.back(),
+                onPressed: () => AppNavigator.back(),
                 child: Text('Already have an account? Sign In'.tr,
                     style: const TextStyle(
                         color: AppColors.primaryOrange, fontSize: 14)),

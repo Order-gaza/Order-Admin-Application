@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import '../../shared/localization/app_translations.dart';
+import '../../shared/utils/app_navigator.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../app/theme/app_colors.dart';
@@ -196,6 +197,21 @@ class _OrderDetailViewState extends State<OrderDetailView> {
                                               '0') ??
                                       0),
                                   AppColors.info),
+                            if (order!['promo_discount'] != null &&
+                                (double.tryParse(order!['promo_discount']?.toString() ?? '0') ?? 0) > 0)
+                              _row('Promo Discount'.tr,
+                                  '- ${fmt.format(double.tryParse(order!['promo_discount']?.toString() ?? '0') ?? 0)}',
+                                  AppColors.success),
+                            if (order!['points_discount'] != null &&
+                                (double.tryParse(order!['points_discount']?.toString() ?? '0') ?? 0) > 0)
+                              _row('Points Discount'.tr,
+                                  '- ${fmt.format(double.tryParse(order!['points_discount']?.toString() ?? '0') ?? 0)}',
+                                  AppColors.success),
+                            if (order!['points_earned'] != null &&
+                                (int.tryParse(order!['points_earned']?.toString() ?? '0') ?? 0) > 0)
+                              _row('Points Earned'.tr,
+                                  '+${order!['points_earned']} pts',
+                                  AppColors.goldenYellow),
                             if (order!['delivery_address'] != null)
                               _row('Address'.tr,
                                   order!['delivery_address'], Colors.white),
@@ -647,7 +663,7 @@ class _OrderDetailViewState extends State<OrderDetailView> {
 
   void _showCancelDialog() {
     final reasonCtrl = TextEditingController();
-    Get.dialog(AlertDialog(
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title: Text('Cancel Order'.tr,
           style: const TextStyle(color: Colors.white)),
@@ -658,11 +674,11 @@ class _OrderDetailViewState extends State<OrderDetailView> {
         decoration: InputDecoration(hintText: 'Reason for cancellation'.tr),
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: Text('No'.tr)),
+        TextButton(onPressed: () => AppNavigator.back(), child: Text('No'.tr)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
+            AppNavigator.back();
             _doAction(
                 widget.cancelEndpoint!, {'reason': reasonCtrl.text});
           },
@@ -677,11 +693,11 @@ class _OrderDetailViewState extends State<OrderDetailView> {
     final res = await ApiProvider.post(endpoint, body: body);
     if (res.success) {
       await _load();
-      Get.snackbar('Done'.tr, res.message?.tr ?? 'Action completed'.tr,
+      AppNavigator.snackbar('Done'.tr, res.message?.tr ?? 'Action completed'.tr,
           backgroundColor: AppColors.success,
           colorText: Colors.white);
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Action failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Action failed'.tr,
           backgroundColor: AppColors.error,
           colorText: Colors.white);
     }

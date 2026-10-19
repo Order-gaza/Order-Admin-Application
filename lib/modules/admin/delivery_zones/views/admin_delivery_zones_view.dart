@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../data/providers/api_provider.dart';
 
@@ -15,54 +16,63 @@ class AdminDeliveryZonesView extends StatefulWidget {
 }
 
 class _AdminDeliveryZonesViewState extends State<AdminDeliveryZonesView> {
-  final isLoading = false.obs;
-  final zones = <Map<String, dynamic>>[].obs;
+  bool _isLoading = false;
+  List<Map<String, dynamic>> _zones = [];
 
   @override
   void initState() {
     super.initState();
-    fetchZones();
+    _fetchZones();
   }
 
-  Future<void> fetchZones() async {
-    isLoading.value = true;
+  Future<void> _fetchZones() async {
+    setState(() => _isLoading = true);
     try {
       final res =
           await ApiProvider.get(ApiEndpoints.adminDeliveryZonesGetAll);
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        zones.value =
-            List<Map<String, dynamic>>.from(d['delivery_zones'] as List? ?? []);
+        setState(() {
+          _zones =
+              List<Map<String, dynamic>>.from(d['delivery_zones'] as List? ?? []);
+        });
       }
     } finally {
-      isLoading.value = false;
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  Future<void> toggleZone(String id) async {
+  Future<void> _toggleZone(String id) async {
     final res = await ApiProvider.post(
         ApiEndpoints.adminDeliveryZonesToggle,
         body: {'zone_id': id});
-    if (res.success) {
-      final idx = zones.indexWhere((z) => z['id']?.toString() == id);
+    if (res.success && mounted) {
+      final idx = _zones.indexWhere((z) => z['id']?.toString() == id);
       if (idx != -1) {
-        final cur = (zones[idx]['is_active'] ?? 1) as int;
-        zones[idx] = {...zones[idx], 'is_active': cur == 1 ? 0 : 1};
-        zones.refresh();
+        setState(() {
+          final cur = (_zones[idx]['is_active'] ?? 1) as int;
+          _zones[idx] = {..._zones[idx], 'is_active': cur == 1 ? 0 : 1};
+        });
       }
     }
   }
 
-  Future<void> deleteZone(String id) async {
+  Future<void> _deleteZone(String id) async {
     final res = await ApiProvider.post(
         ApiEndpoints.adminDeliveryZonesDelete,
         body: {'zone_id': id});
     if (res.success) {
-      zones.removeWhere((z) => z['id']?.toString() == id);
-      Get.snackbar('Deleted'.tr, 'Zone removed'.tr,
+      if (mounted) {
+        setState(() {
+          _zones.removeWhere((z) => z['id']?.toString() == id);
+        });
+      }
+      AppNavigator.snackbar('Deleted'.tr, 'Zone removed'.tr,
           backgroundColor: AppColors.success, colorText: Colors.white);
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: AppColors.error, colorText: Colors.white);
     }
   }
@@ -75,25 +85,25 @@ class _AdminDeliveryZonesViewState extends State<AdminDeliveryZonesView> {
         title: Text('Delivery Zones'.tr),
         actions: [
           IconButton(
-              icon: const Icon(Icons.refresh), onPressed: fetchZones),
+              icon: const Icon(Icons.refresh), onPressed: _fetchZones),
         ],
       ),
       drawer: const AppDrawer(currentRoute: AppRoutes.adminDeliveryZones),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Get.toNamed(AppRoutes.adminAddZone);
-          if (result == true) fetchZones();
+          final result = await AppNavigator.toNamed(AppRoutes.adminAddZone);
+          if (result == true) _fetchZones();
         },
         icon: const Icon(Icons.add_location_alt),
         label: Text('Add Zone'.tr),
       ),
-      body: Obx(() {
-        if (isLoading.value) {
+      body: Builder(builder: (context) {
+        if (_isLoading) {
           return const Center(
               child: CircularProgressIndicator(
                   color: AppColors.primaryOrange));
         }
-        if (zones.isEmpty) {
+        if (_zones.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -108,8 +118,8 @@ class _AdminDeliveryZonesViewState extends State<AdminDeliveryZonesView> {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () async {
-                    final result = await Get.toNamed(AppRoutes.adminAddZone);
-                    if (result == true) fetchZones();
+                    final result = await AppNavigator.toNamed(AppRoutes.adminAddZone);
+                    if (result == true) _fetchZones();
                   },
                   icon: const Icon(Icons.add),
                   label: Text('Add First Zone'.tr),
@@ -120,12 +130,12 @@ class _AdminDeliveryZonesViewState extends State<AdminDeliveryZonesView> {
         }
         return RefreshIndicator(
           color: AppColors.primaryOrange,
-          onRefresh: fetchZones,
+          onRefresh: _fetchZones,
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
-            itemCount: zones.length,
+            itemCount: _zones.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => _zoneCard(zones[i]),
+            itemBuilder: (_, i) => _zoneCard(_zones[i]),
           ),
         );
       }),
@@ -182,7 +192,7 @@ class _AdminDeliveryZonesViewState extends State<AdminDeliveryZonesView> {
                 ),
               ),
               GestureDetector(
-                onTap: () => toggleZone(id),
+                onTap: () => _toggleZone(id),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 5),
@@ -236,7 +246,7 @@ class _AdminDeliveryZonesViewState extends State<AdminDeliveryZonesView> {
                     size: 14, color: AppColors.textSecondary),
                 const SizedBox(width: 6),
                 Text(
-                  'Est. delivery: '.tr + '${zone['estimated_delivery_time']}',
+                  '${'Est. delivery: '.tr}${zone['estimated_delivery_time']}',
                   style: const TextStyle(
                       color: AppColors.textSecondary, fontSize: 12),
                 ),
@@ -250,11 +260,11 @@ class _AdminDeliveryZonesViewState extends State<AdminDeliveryZonesView> {
             children: [
               TextButton.icon(
                 onPressed: () async {
-                  final result = await Get.toNamed(
+                  final result = await AppNavigator.toNamed(
                     AppRoutes.adminAddZone,
                     arguments: zone,
                   );
-                  if (result == true) fetchZones();
+                  if (result == true) _fetchZones();
                 },
                 icon: const Icon(Icons.edit_outlined,
                     size: 16, color: AppColors.info),
@@ -313,7 +323,7 @@ class _AdminDeliveryZonesViewState extends State<AdminDeliveryZonesView> {
   }
 
   void _confirmDelete(String id) {
-    Get.dialog(AlertDialog(
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title: Text('Delete Zone'.tr,
           style: const TextStyle(color: Colors.white)),
@@ -321,13 +331,13 @@ class _AdminDeliveryZonesViewState extends State<AdminDeliveryZonesView> {
           style: const TextStyle(color: AppColors.textSecondary)),
       actions: [
         TextButton(
-            onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+            onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
-            deleteZone(id);
+            AppNavigator.back();
+            _deleteZone(id);
           },
           child: Text('Delete'.tr),
         ),

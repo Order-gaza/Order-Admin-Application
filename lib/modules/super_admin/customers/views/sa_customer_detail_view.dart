@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:get/get.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../data/providers/api_provider.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
 class SaCustomerDetailView extends StatefulWidget {
   final String customerId;
@@ -45,7 +46,9 @@ class _SaCustomerDetailViewState extends State<SaCustomerDetailView> {
         });
       }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -147,8 +150,7 @@ class _SaCustomerDetailViewState extends State<SaCustomerDetailView> {
                           )
                         else
                           ..._recentOrders
-                              .map((o) => _orderCard(o))
-                              ,
+                              .map((o) => _orderCard(o)),
                         const SizedBox(height: 20),
 
                         // ── System Info ──
@@ -430,7 +432,7 @@ class _SaCustomerDetailViewState extends State<SaCustomerDetailView> {
                 body: {'customer_id': widget.customerId},
               );
               if (res.success) {
-                Get.snackbar('Success'.tr, res.message?.tr ?? 'Status updated'.tr,
+                AppNavigator.snackbar('Success'.tr, res.message?.tr ?? 'Status updated'.tr,
                     backgroundColor: const Color(0xFF4CAF50),
                     colorText: const Color(0xFFFFFFFF));
                 _fetch();
@@ -448,7 +450,9 @@ class _SaCustomerDetailViewState extends State<SaCustomerDetailView> {
             style: OutlinedButton.styleFrom(
               side: BorderSide(
                   color: isActive ? AppColors.warning : AppColors.success),
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ),
@@ -456,13 +460,16 @@ class _SaCustomerDetailViewState extends State<SaCustomerDetailView> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: () => _confirmDeleteFromDetail(),
-            icon: const Icon(Icons.delete_outline, color: AppColors.error),
+            onPressed: () => _confirmDelete(),
+            icon: const Icon(Icons.delete_outline,
+                color: AppColors.error),
             label: Text('Delete Customer'.tr,
-                style: TextStyle(color: AppColors.error)),
+                style: const TextStyle(color: AppColors.error)),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppColors.error),
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ),
@@ -470,9 +477,9 @@ class _SaCustomerDetailViewState extends State<SaCustomerDetailView> {
     );
   }
 
-  void _confirmDeleteFromDetail() {
+  void _confirmDelete() {
     final totalOrders = _stats['total_orders'] ?? 0;
-    Get.dialog(AlertDialog(
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title: Text('Delete Customer'.tr,
           style: const TextStyle(color: Colors.white)),
@@ -481,7 +488,7 @@ class _SaCustomerDetailViewState extends State<SaCustomerDetailView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Are you sure you want to delete "%s"?'.tr.replaceFirst('%s', _customer['name'] ?? ''),
+            'Are you sure you want to delete "%s"?'.tr.replaceFirst('%s', _customer['name'] ?? widget.customerName),
             style: const TextStyle(color: AppColors.textSecondary),
           ),
           if (totalOrders > 0) ...[
@@ -514,21 +521,21 @@ class _SaCustomerDetailViewState extends State<SaCustomerDetailView> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+            onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style:
               ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () async {
-            Get.back();
+            AppNavigator.back();
             final res = await ApiProvider.post(
               ApiEndpoints.saCustomersDelete,
               body: {'customer_id': widget.customerId},
             );
             if (res.success) {
-              Get.snackbar('Done'.tr, res.message?.tr ?? 'Customer removed'.tr,
+              AppNavigator.snackbar('Done'.tr, res.message?.tr ?? 'Customer removed'.tr,
                   backgroundColor: const Color(0xFF4CAF50),
                   colorText: const Color(0xFFFFFFFF));
-              Get.back(result: true);
+              AppNavigator.back(result: true);
             }
           },
           child: Text(totalOrders > 0 ? 'Deactivate'.tr : 'Delete'.tr),
@@ -630,7 +637,7 @@ class _SaCustomerDetailViewState extends State<SaCustomerDetailView> {
           IconButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: value));
-              Get.snackbar('Copied'.tr, '$label ' + 'copied'.tr,
+              AppNavigator.snackbar('Copied'.tr, '$label ' + 'copied'.tr,
                   backgroundColor: AppColors.cardDark,
                   colorText: Colors.white,
                   duration: const Duration(seconds: 1));

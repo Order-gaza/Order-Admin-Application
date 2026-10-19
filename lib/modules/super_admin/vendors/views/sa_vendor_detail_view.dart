@@ -1,43 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:get/get.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../app/constants/app_constants.dart';
 import '../../../../data/providers/api_provider.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class SaVendorDetailController extends GetxController {
-  final isLoading = false.obs;
-  final vendor = Rxn<Map<String, dynamic>>();
-  final String vendorId;
-
-  SaVendorDetailController({required this.vendorId});
-
-  @override
-  void onInit() {
-    super.onInit();
-    fetchVendor();
-  }
-
-  Future<void> fetchVendor() async {
-    isLoading.value = true;
-    try {
-      final res = await ApiProvider.get(
-        ApiEndpoints.saVendorsGetById,
-        queryParams: {'id': vendorId},
-      );
-      if (res.success && res.data != null) {
-        final d = res.data as Map<String, dynamic>;
-        vendor.value = d['vendor'] as Map<String, dynamic>?;
-      }
-    } finally {
-      isLoading.value = false;
-    }
-  }
-}
-
-class SaVendorDetailView extends StatelessWidget {
+class SaVendorDetailView extends StatefulWidget {
   final String vendorId;
   final String vendorName;
 
@@ -48,13 +19,47 @@ class SaVendorDetailView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final ctrl = Get.put(SaVendorDetailController(vendorId: vendorId));
+  State<SaVendorDetailView> createState() => _SaVendorDetailViewState();
+}
 
+class _SaVendorDetailViewState extends State<SaVendorDetailView> {
+  bool _isLoading = false;
+  Map<String, dynamic>? _vendor;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchVendor();
+  }
+
+  Future<void> _fetchVendor() async {
+    setState(() => _isLoading = true);
+    try {
+      final res = await ApiProvider.get(
+        ApiEndpoints.saVendorsGetById,
+        queryParams: {'id': widget.vendorId},
+      );
+      if (res.success && res.data != null) {
+        final d = res.data as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            _vendor = d['vendor'] as Map<String, dynamic>?;
+          });
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
-      body: Obx(() {
-        if (ctrl.isLoading.value) {
+      body: Builder(builder: (context) {
+        if (_isLoading) {
           return CustomScrollView(
             slivers: [
               _buildAppBar(null),
@@ -67,7 +72,7 @@ class SaVendorDetailView extends StatelessWidget {
           );
         }
 
-        final v = ctrl.vendor.value;
+        final v = _vendor;
         if (v == null) {
           return CustomScrollView(
             slivers: [
@@ -94,7 +99,7 @@ class SaVendorDetailView extends StatelessWidget {
 
         return RefreshIndicator(
           color: AppColors.primaryOrange,
-          onRefresh: ctrl.fetchVendor,
+          onRefresh: _fetchVendor,
           child: CustomScrollView(
             slivers: [
               _buildAppBar(v),
@@ -116,7 +121,7 @@ class SaVendorDetailView extends StatelessWidget {
       backgroundColor: AppColors.charcoalBlack,
       flexibleSpace: FlexibleSpaceBar(
         title: Text(
-          v?['name'] ?? vendorName,
+          v?['name'] ?? widget.vendorName,
           style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -152,7 +157,7 @@ class SaVendorDetailView extends StatelessWidget {
       actions: [
         IconButton(
           icon: const Icon(Icons.refresh),
-          onPressed: () => Get.find<SaVendorDetailController>().fetchVendor(),
+          onPressed: _fetchVendor,
         ),
       ],
     );
@@ -352,13 +357,16 @@ class SaVendorDetailView extends StatelessWidget {
                 const SizedBox(width: 10),
               if ((v['owner_phone'] ?? '').toString().isNotEmpty)
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => launchUrl(Uri.parse('tel:${v['owner_phone']}')),
-                    icon: const Icon(Icons.person, color: Colors.white, size: 18),
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        launchUrl(Uri.parse('tel:${v['owner_phone']}')),
+                    icon: const Icon(Icons.person,
+                        color: AppColors.primaryOrange, size: 18),
                     label: Text('Call Owner'.tr,
-                        style: const TextStyle(color: Colors.white, fontSize: 13)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.info,
+                        style: const TextStyle(
+                            color: AppColors.primaryOrange, fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primaryOrange),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
@@ -369,57 +377,66 @@ class SaVendorDetailView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // ── Contact & Location ──
-          _sectionTitle('Contact & Location'.tr),
-          const SizedBox(height: 10),
-          _infoCard([
-            _infoRow(
-                Icons.phone, 'Phone'.tr, v['phone'] ?? '—'),
-            _infoRow(Icons.location_city, 'City'.tr, v['city'] ?? '—'),
-            _infoRow(Icons.map, 'Neighborhood'.tr, v['neighborhood'] ?? '—'),
-            _infoRow(Icons.location_on, 'Address'.tr, v['address'] ?? '—'),
-            _infoRow(Icons.my_location, 'Coordinates'.tr,
-                '${v['latitude'] ?? '—'}, ${v['longitude'] ?? '—'}'),
-          ]),
-          const SizedBox(height: 20),
-
-          // ── Owner Info ──
-          _sectionTitle('Owner Information'.tr),
-          const SizedBox(height: 10),
-          _infoCard([
-            _infoRow(Icons.person, 'Name'.tr, v['owner_name'] ?? '—'),
-            _infoRow(Icons.email, 'Email'.tr, v['owner_email'] ?? '—'),
-            _infoRow(
-                Icons.phone_android, 'Phone'.tr, v['owner_phone'] ?? '—'),
-            _infoRow(Icons.verified_user, 'Account Active'.tr,
-                (v['account_active'] ?? 0) == 1 ? 'Yes'.tr : 'No'.tr),
-          ]),
-          const SizedBox(height: 20),
-
           // ── Business Details ──
           _sectionTitle('Business Details'.tr),
           const SizedBox(height: 10),
           _infoCard([
-            _infoRow(Icons.monetization_on, 'Commission'.tr,
-                '${v['commission_rate'] ?? '—'}%'),
-            _infoRow(Icons.shopping_cart_checkout, 'Min Order'.tr,
-                '₪${v['min_order_amount'] ?? '0.00'}'),
-            _infoRow(Icons.delivery_dining, 'Delivery Zone'.tr,
-                _zoneAr(v['delivery_zone'])),
-            _infoRow(Icons.delivery_dining, 'Est. Delivery'.tr,
-                v['estimated_delivery_time'] ?? '—'),
-            _infoRow(Icons.access_time, 'Opening'.tr,
-                v['opening_time']?.toString() ?? '—'),
-            _infoRow(Icons.access_time_filled, 'Closing'.tr,
-                v['closing_time']?.toString() ?? '—'),
-            _infoRow(Icons.schedule, 'Operating Hours'.tr,
-                v['operating_hours']?.toString() ?? '—'),
+            _infoRow(Icons.email, 'Email'.tr, v['email'] ?? '—',
+                copyable: true),
+            _infoRow(Icons.phone, 'Phone'.tr, v['phone'] ?? '—',
+                copyable: true),
+            _infoRow(Icons.location_on, 'Address'.tr, v['address'] ?? '—'),
+            if (v['delivery_zone'] != null)
+              _infoRow(Icons.map, 'Delivery Zone'.tr,
+                  '${_zoneAr(v['delivery_zone'])} (${v['delivery_zone']})'),
+            _infoRow(
+                Icons.percent,
+                'Commission Rate'.tr,
+                '${v['commission_rate'] ?? '0'}%'),
+            _infoRow(Icons.monetization_on, 'Balance'.tr,
+                '₪${v['balance'] ?? '0.00'}'),
+            _infoRow(Icons.calendar_today, 'Registered'.tr,
+                _formatDate(v['created_at'])),
           ]),
           const SizedBox(height: 20),
 
-          // ── Menu Items with Prices ──
-          _sectionTitle('Menu Items'.tr + ' (${menuItems.length})'),
+          // ── Owner Details ──
+          _sectionTitle('Owner Information'.tr),
           const SizedBox(height: 10),
+          _infoCard([
+            _infoRow(Icons.person, 'Name'.tr, v['owner_name'] ?? '—'),
+            _infoRow(Icons.email_outlined, 'Email'.tr,
+                v['owner_email'] ?? '—',
+                copyable: true),
+            _infoRow(Icons.phone_android, 'Phone'.tr,
+                v['owner_phone'] ?? '—',
+                copyable: true),
+          ]),
+          const SizedBox(height: 20),
+
+          // ── Menu Items Summary ──
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _sectionTitle('Menu Items'.tr),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryOrange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${menuItems.length} ' + 'items'.tr,
+                  style: const TextStyle(
+                      color: AppColors.primaryOrange,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
           if (menuItems.isEmpty)
             _card(
               child: Center(
@@ -428,54 +445,41 @@ class SaVendorDetailView extends StatelessWidget {
                   child: Column(
                     children: [
                       Icon(Icons.restaurant_menu,
-                          size: 36,
+                          size: 40,
                           color: Colors.white.withValues(alpha: 0.2)),
                       const SizedBox(height: 8),
                       Text('No menu items yet'.tr,
                           style: TextStyle(
-                              color:
-                                  Colors.white.withValues(alpha: 0.4),
-                              fontSize: 13)),
+                              color: Colors.white.withValues(alpha: 0.4))),
                     ],
                   ),
                 ),
               ),
             )
           else
-            ...menuItems.map((item) => _menuItemCard(item)),
-          const SizedBox(height: 20),
-
-          // ── ID & Dates ──
-          _sectionTitle('System Info'.tr),
-          const SizedBox(height: 10),
-          _infoCard([
-            _infoRow(
-                Icons.fingerprint, 'Vendor ID'.tr, v['id']?.toString() ?? '—',
-                copyable: true),
-            _infoRow(Icons.person_pin, 'User ID'.tr,
-                v['user_id']?.toString() ?? '—',
-                copyable: true),
-            _infoRow(Icons.calendar_today, 'Registered'.tr,
-                _formatDate(v['registered_at'] ?? v['created_at'])),
-            _infoRow(Icons.update, 'Updated'.tr, _formatDate(v['updated_at'])),
-          ]),
-          const SizedBox(height: 32),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: menuItems.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => _menuItemTile(menuItems[i]),
+            ),
+          const SizedBox(height: 30),
         ],
       ),
     );
   }
 
-  Widget _menuItemCard(Map<String, dynamic> item) {
-    final price = double.tryParse(item['base_price']?.toString() ?? '0') ?? 0;
-    final discountPrice =
-        double.tryParse(item['discount_price']?.toString() ?? '0') ?? 0;
-    final hasDiscount = discountPrice > 0 && discountPrice < price;
-    final isAvailable = (item['is_available'] ?? 1) == 1;
+  Widget _menuItemTile(Map<String, dynamic> item) {
     final imageUrl = item['image_url']?.toString();
     final hasImage = imageUrl != null && imageUrl.isNotEmpty;
+    final isAvailable = (item['is_available'] ?? 1) == 1;
+    final price = double.tryParse(item['price']?.toString() ?? '0') ?? 0;
+    final discountPrice =
+        double.tryParse(item['discount_price']?.toString() ?? '');
+    final hasDiscount = discountPrice != null && discountPrice < price;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.cardDark,
@@ -488,12 +492,12 @@ class SaVendorDetailView extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Item image
+          // Image or icon
           Container(
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: AppColors.primaryOrange.withValues(alpha: 0.08),
+              color: AppColors.darkSurface,
               borderRadius: BorderRadius.circular(10),
             ),
             child: hasImage
@@ -682,7 +686,7 @@ class SaVendorDetailView extends StatelessWidget {
               onTap: copyable
                   ? () {
                       Clipboard.setData(ClipboardData(text: value));
-                      Get.snackbar('Copied'.tr, '$label ' + 'copied to clipboard'.tr,
+                      AppNavigator.snackbar('Copied'.tr, '$label ' + 'copied to clipboard'.tr,
                           backgroundColor:
                               AppColors.primaryOrange.withValues(alpha: 0.9),
                           colorText: Colors.white,

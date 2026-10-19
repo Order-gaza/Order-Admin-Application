@@ -1,50 +1,81 @@
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get_storage/get_storage.dart';
 import 'app/routes/app_pages.dart';
 import 'app/routes/app_routes.dart';
 import 'app/theme/app_theme.dart';
-import 'shared/localization/app_translations.dart';
+import 'firebase_options.dart';
 import 'shared/controllers/language_controller.dart';
 import 'shared/services/fcm_service.dart';
 import 'shared/services/secure_storage_service.dart';
+import 'shared/utils/app_navigator.dart';
+
+/// Background handler — only registered on supported platforms.
+Future<void> firebaseMessagingBackgroundHandler(dynamic message) async {}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
   await SecureStorageService.instance.init();
 
-  // Initialize Firebase
-  await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  final isDesktop = !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
-  Get.put(LanguageController());
+  if (!isDesktop) {
+    // Firebase on mobile + web
+    try {
+      final core = await _initFirebase();
+      if (core) {
+        final fcmService = FcmService.to;
+        await fcmService.init();
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[main] Firebase init failed: $e');
+    }
+  }
 
-  // Initialize FCM service
-  final fcmService = FcmService();
-  Get.put(fcmService, permanent: true);
-  await fcmService.init();
+  // Initialize LanguageController singleton
+  LanguageController.to;
 
-  runApp(const OrderAdminApp());
+  runApp(const ProviderScope(child: OrderAdminApp()));
 }
 
-class OrderAdminApp extends StatelessWidget {
+Future<bool> _initFirebase() async {
+  try {
+    // Web: use explicit FirebaseOptions; Android/iOS: auto-init from native files
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
+    return true;
+  } catch (e) {
+    if (kDebugMode) debugPrint('[main] Firebase initializeApp error: $e');
+    return false;
+  }
+}
+
+class OrderAdminApp extends ConsumerWidget {
   const OrderAdminApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final languageController = LanguageController.to;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final language = ref.watch(languageProvider);
 
-    return GetMaterialApp(
+    return MaterialApp(
       title: 'Order Delivery Admin',
       debugShowCheckedModeBanner: false,
+      navigatorKey: AppNavigator.navigatorKey,
+      scaffoldMessengerKey: AppNavigator.messengerKey,
 
       // Localization
-      translations: AppTranslations(),
-      locale: Locale(languageController.currentLanguage.value),
-      fallbackLocale: const Locale('en'),
+      locale: Locale(language.currentLanguage),
 
       // Theme
       theme: AppTheme.lightTheme,
@@ -53,12 +84,8 @@ class OrderAdminApp extends StatelessWidget {
 
       // Routes
       initialRoute: AppRoutes.splash,
-      getPages: AppPages.pages,
-
-      // Default transition
-      defaultTransition: Transition.fadeIn,
-      transitionDuration: const Duration(milliseconds: 200),
+      routes: AppPages.routes,
+      onGenerateRoute: AppPages.onGenerateRoute,
     );
   }
 }
-

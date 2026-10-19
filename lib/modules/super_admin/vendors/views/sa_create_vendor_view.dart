@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../data/providers/api_provider.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
 /// Static location data for vendor zone city/neighborhood picker (admin side)
 class _VendorLocationData {
@@ -96,9 +97,16 @@ class _VendorLocationData {
   }
 }
 
-class SaCreateVendorController extends GetxController {
-  final isSaving = false.obs;
-  final obscurePassword = true.obs;
+class SaCreateVendorView extends StatefulWidget {
+  const SaCreateVendorView({super.key});
+
+  @override
+  State<SaCreateVendorView> createState() => _SaCreateVendorViewState();
+}
+
+class _SaCreateVendorViewState extends State<SaCreateVendorView> {
+  bool isSaving = false;
+  bool obscurePassword = true;
 
   // Owner fields
   final ownerNameCtrl = TextEditingController();
@@ -112,22 +120,24 @@ class SaCreateVendorController extends GetxController {
   final commissionCtrl = TextEditingController(text: '12.00');
 
   // Business type
-  final businessType = 'restaurant'.obs;
+  String businessType = 'restaurant';
 
   // Zone location fields
-  final selectedCity = Rxn<String>();
-  final selectedNeighborhood = Rxn<String>();
-  final neighborhoods = <String>[].obs;
+  String? selectedCity;
+  String? selectedNeighborhood;
+  List<String> neighborhoods = [];
 
   void onCityChanged(String? city) {
-    selectedCity.value = city;
-    selectedNeighborhood.value = null;
-    neighborhoods.value =
-        city != null ? _VendorLocationData.getNeighborhoods(city) : [];
+    setState(() {
+      selectedCity = city;
+      selectedNeighborhood = null;
+      neighborhoods =
+          city != null ? _VendorLocationData.getNeighborhoods(city) : [];
+    });
   }
 
   @override
-  void onClose() {
+  void dispose() {
     ownerNameCtrl.dispose();
     ownerEmailCtrl.dispose();
     ownerPhoneCtrl.dispose();
@@ -135,7 +145,7 @@ class SaCreateVendorController extends GetxController {
     businessNameCtrl.dispose();
     businessPhoneCtrl.dispose();
     commissionCtrl.dispose();
-    super.onClose();
+    super.dispose();
   }
 
   Future<void> save() async {
@@ -164,18 +174,18 @@ class SaCreateVendorController extends GetxController {
       _error('Business phone is required'.tr);
       return;
     }
-    if (selectedCity.value == null || selectedCity.value!.isEmpty) {
+    if (selectedCity == null || selectedCity!.isEmpty) {
       _error('يجب اختيار المدينة'.tr);
       return;
     }
-    if (selectedNeighborhood.value == null || selectedNeighborhood.value!.isEmpty) {
+    if (selectedNeighborhood == null || selectedNeighborhood!.isEmpty) {
       _error('يجب اختيار الحي'.tr);
       return;
     }
 
-    isSaving.value = true;
+    setState(() => isSaving = true);
     try {
-      final zone = _VendorLocationData.getZone(selectedCity.value!) ?? 'north';
+      final zone = _VendorLocationData.getZone(selectedCity!) ?? 'north';
       final res = await ApiProvider.post(
         ApiEndpoints.saVendorsCreate,
         body: {
@@ -184,12 +194,12 @@ class SaCreateVendorController extends GetxController {
           'password': passwordCtrl.text.trim(),
           'phone': ownerPhoneCtrl.text.trim(),
           'business_name': businessNameCtrl.text.trim(),
-          'business_type': businessType.value,
+          'business_type': businessType,
           'business_phone': businessPhoneCtrl.text.trim(),
           'business_address':
-              '${selectedCity.value} - ${selectedNeighborhood.value}',
-          'business_city': selectedCity.value!,
-          'business_neighborhood': selectedNeighborhood.value!,
+              '$selectedCity - $selectedNeighborhood',
+          'business_city': selectedCity!,
+          'business_neighborhood': selectedNeighborhood!,
           'delivery_zone': zone,
           'commission_rate': commissionCtrl.text.trim().isEmpty
               ? '12.00'
@@ -198,8 +208,8 @@ class SaCreateVendorController extends GetxController {
       );
 
       if (res.success) {
-        Get.back(result: true);
-        Get.snackbar('Success'.tr, 'Vendor created & approved'.tr,
+        AppNavigator.back(result: true);
+        AppNavigator.snackbar('Success'.tr, 'Vendor created & approved'.tr,
             backgroundColor: const Color(0xFF4CAF50),
             colorText: const Color(0xFFFFFFFF));
       } else {
@@ -208,34 +218,30 @@ class SaCreateVendorController extends GetxController {
     } catch (e) {
       _error('Something went wrong'.tr);
     } finally {
-      isSaving.value = false;
+      if (mounted) {
+        setState(() => isSaving = false);
+      }
     }
   }
 
   void _error(String msg) {
-    Get.snackbar('Validation'.tr, msg,
+    AppNavigator.snackbar('Validation'.tr, msg,
         backgroundColor: const Color(0xFFF44336),
         colorText: const Color(0xFFFFFFFF));
   }
-}
-
-class SaCreateVendorView extends StatelessWidget {
-  const SaCreateVendorView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = Get.put(SaCreateVendorController());
-
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
         title: Text('Create Vendor'.tr),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => Get.back(),
+          onPressed: () => AppNavigator.back(),
         ),
         actions: [
-          Obx(() => ctrl.isSaving.value
+          isSaving
               ? const Padding(
                   padding: EdgeInsets.all(14),
                   child: SizedBox(
@@ -245,13 +251,13 @@ class SaCreateVendorView extends StatelessWidget {
                           color: AppColors.primaryOrange, strokeWidth: 2)),
                 )
               : TextButton(
-                  onPressed: ctrl.save,
+                  onPressed: save,
                   child: Text('Create'.tr,
                       style: const TextStyle(
                           color: AppColors.primaryOrange,
                           fontWeight: FontWeight.bold,
                           fontSize: 15)),
-                )),
+                ),
         ],
       ),
       body: SingleChildScrollView(
@@ -292,7 +298,7 @@ class SaCreateVendorView extends StatelessWidget {
             const SizedBox(height: 12),
             _label('Owner Full Name *'.tr),
             TextField(
-              controller: ctrl.ownerNameCtrl,
+              controller: ownerNameCtrl,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'e.g. Ahmed Hassan'.tr,
@@ -303,7 +309,7 @@ class SaCreateVendorView extends StatelessWidget {
 
             _label('Owner Email *'.tr),
             TextField(
-              controller: ctrl.ownerEmailCtrl,
+              controller: ownerEmailCtrl,
               keyboardType: TextInputType.emailAddress,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
@@ -315,7 +321,7 @@ class SaCreateVendorView extends StatelessWidget {
 
             _label('Owner Phone *'.tr),
             TextField(
-              controller: ctrl.ownerPhoneCtrl,
+              controller: ownerPhoneCtrl,
               keyboardType: TextInputType.phone,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
@@ -326,21 +332,21 @@ class SaCreateVendorView extends StatelessWidget {
             const SizedBox(height: 14),
 
             _label('Password *'.tr),
-            Obx(() => TextField(
-                  controller: ctrl.passwordCtrl,
-                  obscureText: ctrl.obscurePassword.value,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Min 6 characters'.tr,
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(ctrl.obscurePassword.value
-                          ? Icons.visibility_off
-                          : Icons.visibility),
-                      onPressed: () => ctrl.obscurePassword.toggle(),
-                    ),
-                  ),
-                )),
+            TextField(
+              controller: passwordCtrl,
+              obscureText: obscurePassword,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Min 6 characters'.tr,
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(obscurePassword
+                      ? Icons.visibility_off
+                      : Icons.visibility),
+                  onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                ),
+              ),
+            ),
             const SizedBox(height: 28),
 
             // ── Business Info Section ──
@@ -348,7 +354,7 @@ class SaCreateVendorView extends StatelessWidget {
             const SizedBox(height: 12),
             _label('Business Name *'.tr),
             TextField(
-              controller: ctrl.businessNameCtrl,
+              controller: businessNameCtrl,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'e.g. Gaza Grill Restaurant'.tr,
@@ -358,58 +364,58 @@ class SaCreateVendorView extends StatelessWidget {
             const SizedBox(height: 14),
 
             _label('Business Type *'.tr),
-            Obx(() => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.darkSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      dropdownColor: AppColors.darkSurface,
-                      value: ctrl.businessType.value,
-                      items: [
-                        DropdownMenuItem(
-                            value: 'restaurant',
-                            child: Row(children: [
-                              const Icon(Icons.restaurant,
-                                  color: AppColors.primaryOrange, size: 18),
-                              const SizedBox(width: 8),
-                              Text('Restaurant'.tr,
-                                  style: const TextStyle(color: Colors.white)),
-                            ])),
-                        DropdownMenuItem(
-                            value: 'store',
-                            child: Row(children: [
-                              const Icon(Icons.shopping_bag,
-                                  color: AppColors.info, size: 18),
-                              const SizedBox(width: 8),
-                              Text('Store'.tr,
-                                  style: const TextStyle(color: Colors.white)),
-                            ])),
-                        DropdownMenuItem(
-                            value: 'cafe',
-                            child: Row(children: [
-                              const Icon(Icons.coffee,
-                                  color: AppColors.goldenYellow, size: 18),
-                              const SizedBox(width: 8),
-                              Text('Café'.tr,
-                                  style: const TextStyle(color: Colors.white)),
-                            ])),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) ctrl.businessType.value = v;
-                      },
-                    ),
-                  ),
-                )),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: AppColors.darkSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  dropdownColor: AppColors.darkSurface,
+                  value: businessType,
+                  items: [
+                    DropdownMenuItem(
+                        value: 'restaurant',
+                        child: Row(children: [
+                          const Icon(Icons.restaurant,
+                              color: AppColors.primaryOrange, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Restaurant'.tr,
+                              style: const TextStyle(color: Colors.white)),
+                        ])),
+                    DropdownMenuItem(
+                        value: 'store',
+                        child: Row(children: [
+                          const Icon(Icons.shopping_bag,
+                              color: AppColors.info, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Store'.tr,
+                              style: const TextStyle(color: Colors.white)),
+                        ])),
+                    DropdownMenuItem(
+                        value: 'cafe',
+                        child: Row(children: [
+                          const Icon(Icons.coffee,
+                              color: AppColors.goldenYellow, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Café'.tr,
+                              style: const TextStyle(color: Colors.white)),
+                        ])),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => businessType = v);
+                  },
+                ),
+              ),
+            ),
             const SizedBox(height: 14),
 
             _label('Business Phone *'.tr),
             TextField(
-              controller: ctrl.businessPhoneCtrl,
+              controller: businessPhoneCtrl,
               keyboardType: TextInputType.phone,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
@@ -424,61 +430,61 @@ class SaCreateVendorView extends StatelessWidget {
             const SizedBox(height: 12),
 
             _label('المدينة *'.tr),
-            Obx(() => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.darkSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: ctrl.selectedCity.value != null
-                          ? _zoneColor(
-                              _VendorLocationData.getZone(ctrl.selectedCity.value!))
-                          : AppColors.divider,
-                    ),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      dropdownColor: AppColors.darkSurface,
-                      value: ctrl.selectedCity.value,
-                      hint: Text('اختر المدينة'.tr,
-                          style: const TextStyle(color: AppColors.textSecondary)),
-                      items: _VendorLocationData.getAllCities().map((c) {
-                        return DropdownMenuItem(
-                          value: c['name'],
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: _zoneColor(c['zone'])
-                                      .withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(c['zoneAr']!,
-                                    style: TextStyle(
-                                        color: _zoneColor(c['zone']),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600)),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(c['name']!,
-                                  style: const TextStyle(color: Colors.white)),
-                            ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: AppColors.darkSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selectedCity != null
+                      ? _zoneColor(
+                          _VendorLocationData.getZone(selectedCity!))
+                      : AppColors.divider,
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  dropdownColor: AppColors.darkSurface,
+                  value: selectedCity,
+                  hint: Text('اختر المدينة'.tr,
+                      style: const TextStyle(color: AppColors.textSecondary)),
+                  items: _VendorLocationData.getAllCities().map((c) {
+                    return DropdownMenuItem(
+                      value: c['name'],
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _zoneColor(c['zone'])
+                                  .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(c['zoneAr']!,
+                                style: TextStyle(
+                                    color: _zoneColor(c['zone']),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600)),
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (v) => ctrl.onCityChanged(v),
-                    ),
-                  ),
-                )),
+                          const SizedBox(width: 10),
+                          Text(c['name']!,
+                              style: const TextStyle(color: Colors.white)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (v) => onCityChanged(v),
+                ),
+              ),
+            ),
             const SizedBox(height: 14),
 
             _label('الحي / المنطقة *'.tr),
-            Obx(() {
-              final hoods = ctrl.neighborhoods;
-              if (ctrl.selectedCity.value == null) {
+            Builder(builder: (_) {
+              final hoods = neighborhoods;
+              if (selectedCity == null) {
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
@@ -503,7 +509,7 @@ class SaCreateVendorView extends StatelessWidget {
                   child: DropdownButton<String>(
                     isExpanded: true,
                     dropdownColor: AppColors.darkSurface,
-                    value: ctrl.selectedNeighborhood.value,
+                    value: selectedNeighborhood,
                     hint: Text('اختر الحي'.tr,
                         style: const TextStyle(color: AppColors.textSecondary)),
                     items: hoods
@@ -514,53 +520,54 @@ class SaCreateVendorView extends StatelessWidget {
                                       const TextStyle(color: Colors.white)),
                             ))
                         .toList(),
-                    onChanged: (v) => ctrl.selectedNeighborhood.value = v,
+                    onChanged: (v) => setState(() => selectedNeighborhood = v),
                   ),
                 ),
               );
             }),
 
             // Zone badge display
-            Obx(() {
-              if (ctrl.selectedCity.value == null) return const SizedBox.shrink();
-              final zone =
-                  _VendorLocationData.getZone(ctrl.selectedCity.value!);
-              final zoneAr = zone == 'north'
-                  ? 'الشمال'
-                  : zone == 'central'
-                      ? 'الوسطى'
-                      : 'الجنوب';
-              return Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _zoneColor(zone).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: _zoneColor(zone).withValues(alpha: 0.3)),
+            if (selectedCity != null) ...[
+              Builder(builder: (_) {
+                final zone =
+                    _VendorLocationData.getZone(selectedCity!);
+                final zoneAr = zone == 'north'
+                    ? 'الشمال'
+                    : zone == 'central'
+                        ? 'الوسطى'
+                        : 'الجنوب';
+                return Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _zoneColor(zone).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: _zoneColor(zone).withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.delivery_dining,
+                            color: _zoneColor(zone), size: 18),
+                        const SizedBox(width: 8),
+                        Text('منطقة التوصيل: $zoneAr',
+                            style: TextStyle(
+                                color: _zoneColor(zone),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.delivery_dining,
-                          color: _zoneColor(zone), size: 18),
-                      const SizedBox(width: 8),
-                      Text('منطقة التوصيل: $zoneAr',
-                          style: TextStyle(
-                              color: _zoneColor(zone),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              );
-            }),
+                );
+              }),
+            ],
             const SizedBox(height: 14),
 
             _label('Commission Rate (%)'.tr),
             TextField(
-              controller: ctrl.commissionCtrl,
+              controller: commissionCtrl,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white),
@@ -574,16 +581,16 @@ class SaCreateVendorView extends StatelessWidget {
             // ── Submit ──
             SizedBox(
               width: double.infinity,
-              child: Obx(() => ElevatedButton.icon(
-                    onPressed: ctrl.isSaving.value ? null : ctrl.save,
-                    icon: const Icon(Icons.add_business),
-                    label: Text(ctrl.isSaving.value
-                        ? 'Creating...'.tr
-                        : 'Create & Approve Vendor'.tr),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  )),
+              child: ElevatedButton.icon(
+                onPressed: isSaving ? null : save,
+                icon: const Icon(Icons.add_business),
+                label: Text(isSaving
+                    ? 'Creating...'.tr
+                    : 'Create & Approve Vendor'.tr),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
             ),
             const SizedBox(height: 24),
           ],

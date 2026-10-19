@@ -1,73 +1,214 @@
 import 'dart:async';
-import 'package:get/get.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../shared/localization/app_translations.dart';
+import '../../shared/utils/app_navigator.dart';
+import '../../shared/utils/sound_player_stub.dart'
+    if (dart.library.html) '../../shared/utils/sound_player_web.dart'
+    if (dart.library.io) '../../shared/utils/sound_player_io.dart';
 import '../../app/constants/api_endpoints.dart';
+import '../../app/routes/app_routes.dart';
 import '../../data/providers/api_provider.dart';
 
 /// Shared notifications controller — works for SA, Admin, Vendor.
-class NotificationsController extends GetxController {
-  final notifications = <Map<String, dynamic>>[].obs;
-  final unreadCount = 0.obs;
-  final isLoading = false.obs;
-  final currentPage = 1.obs;
-  final totalPages = 1.obs;
+class NotificationsController extends ChangeNotifier {
+  static NotificationsController? _instance;
+  static NotificationsController get to =>
+      _instance ??= NotificationsController();
+
+  List<Map<String, dynamic>> notifications = [];
+  int unreadCount = 0;
+  bool isLoading = false;
+  int currentPage = 1;
+  int totalPages = 1;
   Timer? _pollTimer;
 
-  @override
-  void onInit() {
-    super.onInit();
+  final Set<String> _seenNotificationIds = {};
+  bool _isInitialFetch = true;
+
+  NotificationsController() {
+    _instance = this;
     fetchUnreadCount();
     fetchNotifications();
-    // Poll every 30 seconds for unread count
+
+    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+    final pollInterval = isDesktop ? 10 : 30;
+
     _pollTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => fetchUnreadCount(),
+      Duration(seconds: pollInterval),
+      (_) => _pollCheck(),
     );
   }
 
   @override
-  void onClose() {
+  void dispose() {
     _pollTimer?.cancel();
-    super.onClose();
+    super.dispose();
+  }
+
+  Future<void> _pollCheck() async {
+    final prevCount = unreadCount;
+    await fetchUnreadCount();
+    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+
+    if (isDesktop || unreadCount > prevCount) {
+      await fetchNotifications(refresh: true, isPolling: true);
+    }
   }
 
   Future<void> fetchUnreadCount() async {
     try {
       final res = await ApiProvider.get(ApiEndpoints.notificationsUnreadCount);
       if (res.success && res.data != null) {
-        unreadCount.value = res.data['unread_count'] ?? 0;
+        unreadCount = res.data['unread_count'] ?? 0;
+        notifyListeners();
       }
     } catch (_) {}
   }
 
-  Future<void> fetchNotifications({bool refresh = false}) async {
-    if (refresh) currentPage.value = 1;
-    isLoading.value = true;
+  Future<void> fetchNotifications(
+      {bool refresh = false, bool isPolling = false}) async {
+    if (refresh) currentPage = 1;
+    if (!isPolling) {
+      isLoading = true;
+      notifyListeners();
+    }
     try {
       final res = await ApiProvider.get(
-        '${ApiEndpoints.notificationsGetAll}?page=${currentPage.value}&limit=25',
+        '${ApiEndpoints.notificationsGetAll}?page=$currentPage&limit=25',
       );
       if (res.success && res.data != null) {
         final list = (res.data['notifications'] as List?)
                 ?.map((e) => Map<String, dynamic>.from(e))
                 .toList() ??
             [];
-        if (refresh || currentPage.value == 1) {
-          notifications.value = list;
+        if (refresh || currentPage == 1) {
+          notifications = list;
         } else {
           notifications.addAll(list);
         }
         final pagination = res.data['pagination'];
         if (pagination != null) {
-          totalPages.value = pagination['total_pages'] ?? 1;
+          totalPages = pagination['total_pages'] ?? 1;
         }
+
+        _checkForNewNotifications(list);
       }
     } catch (_) {}
-    isLoading.value = false;
+    if (!isPolling) {
+      isLoading = false;
+    }
+    notifyListeners();
+  }
+
+  void _checkForNewNotifications(List<Map<String, dynamic>> list) {
+    if (list.isEmpty) return;
+
+    if (_isInitialFetch) {
+      for (final n in list) {
+        final id = n['id']?.toString();
+        if (id != null && id.isNotEmpty) {
+          _seenNotificationIds.add(id);
+        }
+      }
+      _isInitialFetch = false;
+      return;
+    }
+
+    final newUnreadNotifications = <Map<String, dynamic>>[];
+    for (final n in list) {
+      final id = n['id']?.toString();
+      final isRead = n['is_read']?.toString() == '1';
+      if (id != null &&
+          id.isNotEmpty &&
+          !isRead &&
+          !_seenNotificationIds.contains(id)) {
+        _seenNotificationIds.add(id);
+        newUnreadNotifications.add(n);
+      }
+    }
+
+    for (final n in newUnreadNotifications) {
+      triggerNotificationAlertAndSound(n);
+    }
+  }
+
+  void triggerNotificationAlertAndSound(Map<String, dynamic> n) {
+    final title = n['title']?.toString() ?? 'Notification'.tr;
+    final body = n['body']?.toString() ?? '';
+
+    _playAlertSound();
+
+    if (AppNavigator.isSnackbarOpen == false) {
+      AppNavigator.snackbar(
+        title,
+        body,
+        backgroundColor: const Color(0xFF1E1E2E),
+        colorText: Colors.white,
+        icon: const Icon(
+          Icons.notifications_active,
+          color: Color(0xFFFF6B35),
+          size: 28,
+        ),
+        duration: const Duration(seconds: 6),
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+    }
+  }
+
+  void _playAlertSound() {
+    try {
+      if (kIsWeb) {
+        playWebSound();
+      } else {
+        SystemSound.play(SystemSoundType.alert);
+        Future.delayed(const Duration(milliseconds: 250), () {
+          SystemSound.play(SystemSoundType.alert);
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[NotificationSound] Error playing sound: $e');
+    }
+  }
+
+  void navigateToOrderFromData(Map<String, dynamic> data) {
+    final orderId = data['order_id'];
+    final orderNumber = data['order_number'];
+    if (orderId != null && orderId.toString().isNotEmpty) {
+      String role = 'admin';
+      try {
+        role = ApiProvider.storedRole ?? 'admin';
+      } catch (_) {}
+
+      String route;
+      if (role == 'vendor') {
+        route = AppRoutes.vendorOrderDetail;
+      } else if (role == 'super_admin') {
+        route = AppRoutes.saOrderDetail;
+      } else {
+        route = AppRoutes.adminOrderDetail;
+      }
+
+      try {
+        AppNavigator.toNamed(route, arguments: {
+          'order_id': orderId.toString(),
+          'order_number': orderNumber?.toString() ?? '',
+        });
+      } catch (_) {}
+    }
   }
 
   Future<void> loadMore() async {
-    if (currentPage.value < totalPages.value) {
-      currentPage.value++;
+    if (currentPage < totalPages) {
+      currentPage++;
       await fetchNotifications();
     }
   }
@@ -81,9 +222,9 @@ class NotificationsController extends GetxController {
       final idx = notifications.indexWhere((n) => n['id'] == notificationId);
       if (idx != -1) {
         notifications[idx] = {...notifications[idx], 'is_read': '1'};
-        notifications.refresh();
       }
-      if (unreadCount.value > 0) unreadCount.value--;
+      if (unreadCount > 0) unreadCount--;
+      notifyListeners();
     } catch (_) {}
   }
 
@@ -93,8 +234,8 @@ class NotificationsController extends GetxController {
       for (var i = 0; i < notifications.length; i++) {
         notifications[i] = {...notifications[i], 'is_read': '1'};
       }
-      notifications.refresh();
-      unreadCount.value = 0;
+      unreadCount = 0;
+      notifyListeners();
     } catch (_) {}
   }
 
@@ -103,3 +244,6 @@ class NotificationsController extends GetxController {
     await fetchUnreadCount();
   }
 }
+
+final notificationsProvider = ChangeNotifierProvider<NotificationsController>(
+    (ref) => NotificationsController.to);

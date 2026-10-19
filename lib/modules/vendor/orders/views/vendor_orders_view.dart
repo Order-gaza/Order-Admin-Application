@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/app_constants.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/order_status_badge.dart';
 import '../controllers/vendor_orders_controller.dart';
 
-class VendorOrdersView extends GetView<VendorOrdersController> {
+class VendorOrdersView extends ConsumerWidget {
   const VendorOrdersView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(VendorOrdersController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(vendorOrdersProvider);
     final fmt = NumberFormat.currency(symbol: '₪', decimalDigits: 2);
 
     return DefaultTabController(
@@ -39,8 +41,8 @@ class VendorOrdersView extends GetView<VendorOrdersController> {
         body: TabBarView(
           children: [
             // ── Tab 1: Incoming (pending) orders ──
-            Obx(() {
-              if (controller.isLoading.value) {
+            Builder(builder: (context) {
+              if (controller.isLoading) {
                 return const Center(
                     child: CircularProgressIndicator(
                         color: AppColors.primaryOrange));
@@ -58,12 +60,12 @@ class VendorOrdersView extends GetView<VendorOrdersController> {
                   itemCount: list.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (_, i) =>
-                      _incomingCard(list[i], fmt),
+                      _incomingCard(list[i], fmt, controller),
                 ),
               );
             }),
             // ── Tab 2: All orders history ──
-            Obx(() {
+            Builder(builder: (context) {
               final list = controller.allOrders;
               if (list.isEmpty) {
                 return _emptyState('No orders yet'.tr, Icons.receipt_long);
@@ -85,11 +87,11 @@ class VendorOrdersView extends GetView<VendorOrdersController> {
     );
   }
 
-  Widget _incomingCard(Map<String, dynamic> order, NumberFormat fmt) {
+  Widget _incomingCard(Map<String, dynamic> order, NumberFormat fmt, VendorOrdersController controller) {
     final status = order['status'] ?? '';
     final id = order['id'] ?? '';
     return GestureDetector(
-      onTap: () => Get.toNamed(AppRoutes.vendorOrderDetail, arguments: {
+      onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrderDetail, arguments: {
         'order_id': id.toString(),
         'order_number': order['order_number'] ?? '',
       }),
@@ -191,7 +193,7 @@ class VendorOrdersView extends GetView<VendorOrdersController> {
 
   Widget _historyCard(Map<String, dynamic> order, NumberFormat fmt) {
     return GestureDetector(
-      onTap: () => Get.toNamed(AppRoutes.vendorOrderDetail, arguments: {
+      onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrderDetail, arguments: {
         'order_id': order['id']?.toString() ?? '',
         'order_number': order['order_number'] ?? '',
       }),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/constants/app_constants.dart';
 import '../../app/routes/app_routes.dart';
 import '../../data/providers/api_provider.dart';
+import '../../shared/localization/app_translations.dart';
+import '../../shared/utils/app_navigator.dart';
 import '../../modules/auth/controllers/auth_controller.dart';
 
 /// A role-aware navigation drawer used across all dashboards.
@@ -101,7 +102,7 @@ class AppDrawer extends StatelessWidget {
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
-              children: _buildMenuItems(role),
+              children: _buildMenuItems(context, role),
             ),
           ),
 
@@ -112,7 +113,7 @@ class AppDrawer extends StatelessWidget {
             title:
                 Text('Logout'.tr, style: const TextStyle(color: AppColors.error)),
             onTap: () {
-              Get.dialog(
+              AppNavigator.dialog(
                 AlertDialog(
                   backgroundColor: AppColors.darkSurface,
                   title: Text('Logout'.tr,
@@ -121,15 +122,15 @@ class AppDrawer extends StatelessWidget {
                       style: const TextStyle(color: AppColors.textSecondary)),
                   actions: [
                     TextButton(
-                      onPressed: () => Get.back(),
+                      onPressed: () => AppNavigator.back(),
                       child: Text('Cancel'.tr),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.error),
                       onPressed: () {
-                        Get.back();
-                        Get.put(AuthController()).logout();
+                        AppNavigator.back();
+                        AuthController.to.logout();
                       },
                       child: Text('Logout'.tr),
                     ),
@@ -144,43 +145,44 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildMenuItems(String role) {
+  List<Widget> _buildMenuItems(BuildContext context, String role) {
     switch (role) {
       case AppConstants.roleSuperAdmin:
         return [
-          _tile(Icons.dashboard, 'Dashboard'.tr, AppRoutes.saDashboard),
-          _tile(Icons.admin_panel_settings, 'Admins'.tr, AppRoutes.saAdmins),
-          _tile(Icons.store, 'Vendors'.tr, AppRoutes.saVendors),
-          _tile(Icons.people, 'Customers'.tr, AppRoutes.saCustomers),
-          _tile(Icons.receipt_long, 'Orders'.tr, AppRoutes.saOrders),
-          _tile(Icons.campaign, 'Advertisements'.tr, AppRoutes.saAds),
-          _tile(Icons.category, 'Categories'.tr, AppRoutes.saCategories),
-          _tile(Icons.attach_money, 'Earnings'.tr, AppRoutes.saEarnings),
-          _tile(Icons.tune, 'Fee Config'.tr, AppRoutes.saFeeConfig),
-          // _tile(Icons.map, 'Delivery Zones'.tr, AppRoutes.saDeliveryZones),
-          _tile(Icons.person, 'Profile'.tr, AppRoutes.saProfile),
+          _tile(context, Icons.dashboard, 'Dashboard'.tr, AppRoutes.saDashboard),
+          _tile(context, Icons.admin_panel_settings, 'Admins'.tr, AppRoutes.saAdmins),
+          _tile(context, Icons.store, 'Vendors'.tr, AppRoutes.saVendors),
+          _tile(context, Icons.people, 'Customers'.tr, AppRoutes.saCustomers),
+          _tile(context, Icons.receipt_long, 'Orders'.tr, AppRoutes.saOrders),
+          _tile(context, Icons.campaign, 'Advertisements'.tr, AppRoutes.saAds),
+          _tile(context, Icons.category, 'Categories'.tr, AppRoutes.saCategories),
+          _tile(context, Icons.attach_money, 'Earnings'.tr, AppRoutes.saEarnings),
+          _tile(context, Icons.tune, 'Fee Config'.tr, AppRoutes.saFeeConfig),
+          _tile(context, Icons.stars, 'Points Settings'.tr, AppRoutes.saPointsConfig),
+          _tile(context, Icons.discount, 'Promo Codes'.tr, AppRoutes.saPromoCodes),
+          _tile(context, Icons.notifications_active, 'Notifications'.tr, AppRoutes.saNotifications),
+          _tile(context, Icons.schedule_send, 'Scheduled Notifs'.tr, AppRoutes.saScheduledNotifs),
+          _tile(context, Icons.person, 'Profile'.tr, AppRoutes.saProfile),
         ];
       case AppConstants.roleAdmin:
         return [
-          _tile(Icons.dashboard, 'Dashboard'.tr, AppRoutes.adminDashboard),
-          _tile(Icons.receipt_long, 'Orders'.tr, AppRoutes.adminOrders),
-          // _tile(Icons.map, 'Delivery Zones'.tr, AppRoutes.adminDeliveryZones),
-          _tile(Icons.delivery_dining, 'Delivery Fee'.tr, AppRoutes.adminDeliverySettings),
-          _tile(Icons.person, 'Profile'.tr, AppRoutes.adminProfile),
+          _tile(context, Icons.dashboard, 'Dashboard'.tr, AppRoutes.adminDashboard),
+          _tile(context, Icons.receipt_long, 'Orders'.tr, AppRoutes.adminOrders),
+          _tile(context, Icons.delivery_dining, 'Delivery Fee'.tr, AppRoutes.adminDeliverySettings),
+          _tile(context, Icons.person, 'Profile'.tr, AppRoutes.adminProfile),
         ];
       case AppConstants.roleVendor:
         return [
-          _tile(Icons.dashboard, 'Dashboard'.tr, AppRoutes.vendorDashboard),
-          _tile(Icons.receipt_long, 'Orders'.tr, AppRoutes.vendorOrders),
-          _tile(Icons.restaurant_menu, 'Menu'.tr, AppRoutes.vendorMenu),
-          _tile(Icons.category, 'Categories'.tr, AppRoutes.vendorCategories),
-          _tile(Icons.person, 'Profile'.tr, AppRoutes.vendorProfile),
+          _tile(context, Icons.dashboard, 'Dashboard'.tr, AppRoutes.vendorDashboard),
+          _tile(context, Icons.receipt_long, 'Orders'.tr, AppRoutes.vendorOrders),
+          _tile(context, Icons.restaurant_menu, 'Menu'.tr, AppRoutes.vendorMenu),
+          _tile(context, Icons.category, 'Categories'.tr, AppRoutes.vendorCategories),
+          _tile(context, Icons.person, 'Profile'.tr, AppRoutes.vendorProfile),
         ];
       default:
         return [];
     }
   }
-
 
   /// Check if this route is a dashboard route
   bool _isDashboard(String route) {
@@ -189,7 +191,7 @@ class AppDrawer extends StatelessWidget {
         route == AppRoutes.vendorDashboard;
   }
 
-  Widget _tile(IconData icon, String title, String route) {
+  Widget _tile(BuildContext context, IconData icon, String title, String route) {
     final isActive = currentRoute == route;
     return ListTile(
       leading: Icon(icon,
@@ -205,23 +207,20 @@ class AppDrawer extends StatelessWidget {
           isActive ? AppColors.primaryOrange.withValues(alpha: 0.1) : null,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       onTap: () {
-        Get.back(); // close drawer
+        final scaffold = Scaffold.maybeOf(context);
+        if (scaffold?.isDrawerOpen ?? false) {
+          AppNavigator.back(); // close drawer
+        }
         if (route == currentRoute) return;
 
         if (_isDashboard(route)) {
-          // Going to dashboard → clear entire stack
-          Get.offAllNamed(route);
+          AppNavigator.offAllNamed(route);
         } else {
-          // Going to a sub-page → push on top of dashboard
-          // First check if we're already on a sub-page (not dashboard)
-          // If so, replace current sub-page with new one
           if (_isDashboard(currentRoute)) {
-            // We're on dashboard → just push sub-page
-            Get.toNamed(route, arguments: Get.arguments);
+            AppNavigator.toNamed(route, arguments: AppNavigator.arguments);
           } else {
-            // We're on another sub-page → go back to dashboard first, then push
-            Get.until((r) => _isDashboard(r.settings.name ?? ''));
-            Get.toNamed(route, arguments: Get.arguments);
+            AppNavigator.until((r) => _isDashboard(r.settings.name ?? ''));
+            AppNavigator.toNamed(route, arguments: AppNavigator.arguments);
           }
         }
       },

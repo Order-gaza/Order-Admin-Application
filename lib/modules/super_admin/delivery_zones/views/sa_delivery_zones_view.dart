@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../controllers/sa_delivery_zones_controller.dart';
 
-class SaDeliveryZonesView extends GetView<SaDeliveryZonesController> {
+class SaDeliveryZonesView extends ConsumerWidget {
   const SaDeliveryZonesView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(SaDeliveryZonesController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(saDeliveryZonesProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -24,14 +27,14 @@ class SaDeliveryZonesView extends GetView<SaDeliveryZonesController> {
       drawer: const AppDrawer(currentRoute: AppRoutes.saDeliveryZones),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Get.toNamed(AppRoutes.saAddZone);
+          final result = await AppNavigator.toNamed(AppRoutes.saAddZone);
           if (result == true) controller.fetchZones();
         },
         icon: const Icon(Icons.add_location_alt),
         label: Text('Add Zone'.tr),
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
+      body: Builder(builder: (context) {
+        if (controller.isLoading) {
           return const Center(
               child:
                   CircularProgressIndicator(color: AppColors.primaryOrange));
@@ -50,7 +53,8 @@ class SaDeliveryZonesView extends GetView<SaDeliveryZonesController> {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () async {
-                    final result = await Get.toNamed(AppRoutes.saAddZone);
+                    final result =
+                        await AppNavigator.toNamed(AppRoutes.saAddZone);
                     if (result == true) controller.fetchZones();
                   },
                   icon: const Icon(Icons.add),
@@ -67,14 +71,16 @@ class SaDeliveryZonesView extends GetView<SaDeliveryZonesController> {
             padding: const EdgeInsets.all(16),
             itemCount: controller.zones.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => _zoneCard(controller.zones[i]),
+            itemBuilder: (_, i) =>
+                _zoneCard(controller, controller.zones[i]),
           ),
         );
       }),
     );
   }
 
-  Widget _zoneCard(Map<String, dynamic> zone) {
+  Widget _zoneCard(
+      SaDeliveryZonesController controller, Map<String, dynamic> zone) {
     final isActive = (zone['is_active'] ?? 1) == 1;
     final id = zone['id']?.toString() ?? '';
 
@@ -176,7 +182,7 @@ class SaDeliveryZonesView extends GetView<SaDeliveryZonesController> {
                     size: 14, color: AppColors.textSecondary),
                 const SizedBox(width: 6),
                 Text(
-                  'Est. delivery:'.tr + ' ${zone['estimated_delivery_time']}',
+                  '${'Est. delivery:'.tr} ${zone['estimated_delivery_time']}',
                   style: const TextStyle(
                       color: AppColors.textSecondary, fontSize: 12),
                 ),
@@ -190,7 +196,7 @@ class SaDeliveryZonesView extends GetView<SaDeliveryZonesController> {
             children: [
               TextButton.icon(
                 onPressed: () async {
-                  final result = await Get.toNamed(
+                  final result = await AppNavigator.toNamed(
                     AppRoutes.saAddZone,
                     arguments: zone,
                   );
@@ -199,25 +205,27 @@ class SaDeliveryZonesView extends GetView<SaDeliveryZonesController> {
                 icon: const Icon(Icons.edit_outlined,
                     size: 16, color: AppColors.info),
                 label: Text('Edit'.tr,
-                    style: TextStyle(color: AppColors.info, fontSize: 12)),
+                    style:
+                        const TextStyle(color: AppColors.info, fontSize: 12)),
                 style: TextButton.styleFrom(
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4)),
               ),
               const SizedBox(width: 8),
               TextButton.icon(
-                onPressed: () => _confirmDelete(id),
+                onPressed: () => _confirmDelete(controller, id),
                 icon: const Icon(Icons.delete_outline,
                     size: 16, color: AppColors.error),
                 label: Text('Delete'.tr,
-                    style: TextStyle(color: AppColors.error, fontSize: 12)),
+                    style: const TextStyle(
+                        color: AppColors.error, fontSize: 12)),
                 style: TextButton.styleFrom(
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4)),
               ),
             ],
           ),
@@ -252,20 +260,21 @@ class SaDeliveryZonesView extends GetView<SaDeliveryZonesController> {
     );
   }
 
-  void _confirmDelete(String id) {
-    Get.dialog(AlertDialog(
+  void _confirmDelete(SaDeliveryZonesController controller, String id) {
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
-      title: Text('Delete Zone'.tr, style: const TextStyle(color: Colors.white)),
+      title: Text('Delete Zone'.tr,
+          style: const TextStyle(color: Colors.white)),
       content: Text('Remove this delivery zone?'.tr,
-          style: TextStyle(color: AppColors.textSecondary)),
+          style: const TextStyle(color: AppColors.textSecondary)),
       actions: [
         TextButton(
-            onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+            onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style:
               ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
+            AppNavigator.back();
             controller.deleteZone(id);
           },
           child: Text('Delete'.tr),

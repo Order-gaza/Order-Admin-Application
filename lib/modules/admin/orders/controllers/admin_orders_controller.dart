@@ -1,46 +1,66 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/providers/api_provider.dart';
 import '../../../../app/constants/api_endpoints.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class AdminOrdersController extends GetxController {
-  final isLoading = false.obs;
-  final orders = <Map<String, dynamic>>[].obs;
-  final selectedStatus = 'pending'.obs;
-  final searchQuery = ''.obs;
+final adminOrdersProvider = ChangeNotifierProvider<AdminOrdersController>((ref) {
+  return AdminOrdersController.to;
+});
+
+class AdminOrdersController extends ChangeNotifier {
+  static AdminOrdersController? _instance;
+  static AdminOrdersController get to => _instance ??= AdminOrdersController();
+
+  bool isLoading = false;
+  List<Map<String, dynamic>> orders = [];
+  String selectedStatus = 'pending';
+  String searchQuery = '';
 
   final statusFilters = [
     'pending', 'admin_confirmed', 'sent_to_vendor', 'vendor_accepted',
     'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'cancelled'
   ];
 
-  @override
-  void onInit() {
-    super.onInit();
-    ever(selectedStatus, (_) => fetchOrders());
+  AdminOrdersController() {
     fetchOrders();
   }
 
+  void selectStatus(String s) {
+    if (selectedStatus == s) return;
+    selectedStatus = s;
+    notifyListeners();
+    fetchOrders();
+  }
+
+  void setSearchQuery(String q) {
+    searchQuery = q;
+    notifyListeners();
+  }
+
   Future<void> fetchOrders() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.get(
         ApiEndpoints.adminOrdersGetByStatus,
-        queryParams: {'status': selectedStatus.value},
+        queryParams: {'status': selectedStatus},
       );
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        orders.value =
+        orders =
             List<Map<String, dynamic>>.from(d['orders'] as List? ?? []);
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
   List<Map<String, dynamic>> get filtered {
-    if (searchQuery.value.isEmpty) return orders;
-    final q = searchQuery.value.toLowerCase();
+    if (searchQuery.isEmpty) return orders;
+    final q = searchQuery.toLowerCase();
     return orders.where((o) {
       return (o['order_number'] ?? '').toLowerCase().contains(q) ||
           (o['customer_name'] ?? '').toLowerCase().contains(q);
@@ -71,15 +91,14 @@ class AdminOrdersController extends GetxController {
     _handleActionResult(res, 'Order cancelled');
   }
 
-  void _handleActionResult(
-      dynamic res, String successMsg) {
+  void _handleActionResult(dynamic res, String successMsg) {
     if (res.success) {
       fetchOrders();
-      Get.snackbar('Success', successMsg,
+      AppNavigator.snackbar('Success', successMsg,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Action failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Action failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }

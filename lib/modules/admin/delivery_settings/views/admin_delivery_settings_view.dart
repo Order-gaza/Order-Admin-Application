@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../data/providers/api_provider.dart';
 
@@ -78,7 +79,7 @@ class _AdminDeliverySettingsViewState
   Future<void> _saveRoute(String routeKey, TextEditingController ctrl) async {
     final fee = double.tryParse(ctrl.text.trim());
     if (fee == null || fee < 0) {
-      Get.snackbar('خطأ'.tr, 'أدخل سعر صحيح'.tr,
+      AppNavigator.snackbar('خطأ'.tr, 'أدخل سعر صحيح'.tr,
           backgroundColor: AppColors.error, colorText: Colors.white);
       return;
     }
@@ -93,10 +94,10 @@ class _AdminDeliverySettingsViewState
         },
       );
       if (res.success) {
-        Get.snackbar('نجاح'.tr, 'تم تحديث سعر التوصيل'.tr,
+        AppNavigator.snackbar('نجاح'.tr, 'تم تحديث سعر التوصيل'.tr,
             backgroundColor: AppColors.success, colorText: Colors.white);
       } else {
-        Get.snackbar('خطأ'.tr, res.message?.tr ?? 'فشلت العملية'.tr,
+        AppNavigator.snackbar('خطأ'.tr, res.message?.tr ?? 'فشلت العملية'.tr,
             backgroundColor: AppColors.error, colorText: Colors.white);
       }
     } finally {
@@ -134,10 +135,10 @@ class _AdminDeliverySettingsViewState
     setState(() => _isSaving = false);
 
     if (allSuccess) {
-      Get.snackbar('نجاح'.tr, 'تم تحديث جميع أسعار التوصيل'.tr,
+      AppNavigator.snackbar('نجاح'.tr, 'تم تحديث جميع أسعار التوصيل'.tr,
           backgroundColor: AppColors.success, colorText: Colors.white);
     } else {
-      Get.snackbar('تنبيه'.tr, 'بعض التحديثات لم تنجح'.tr,
+      AppNavigator.snackbar('تنبيه'.tr, 'بعض التحديثات لم تنجح'.tr,
           backgroundColor: AppColors.warning, colorText: Colors.white);
     }
   }
@@ -218,7 +219,7 @@ class _AdminDeliverySettingsViewState
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(
+                  const Text(
                     'الشمال = غزة | الوسطى = دير البلح/النصيرات/البريج/المغازي | الجنوب = خانيونس',
                     style: TextStyle(
                         color: AppColors.textSecondary,

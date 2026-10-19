@@ -147,6 +147,41 @@ class ApiEndpoints {
   static const String saFeeConfigUpdate =
       '$baseUrl/super_admin/fee_config/update.php';
 
+  // ── Super Admin: Points Config ──
+  static const String saPointsConfigGet =
+      '$baseUrl/super_admin/points_config/get.php';
+  static const String saPointsConfigUpdate =
+      '$baseUrl/super_admin/points_config/update.php';
+
+  // ── Super Admin: Promo Codes ──
+  static const String saPromoCodesGetAll =
+      '$baseUrl/super_admin/promo_codes/get_all.php';
+  static const String saPromoCodesGetById =
+      '$baseUrl/super_admin/promo_codes/get_by_id.php';
+  static const String saPromoCodesCreate =
+      '$baseUrl/super_admin/promo_codes/create.php';
+  static const String saPromoCodesUpdate =
+      '$baseUrl/super_admin/promo_codes/update.php';
+  static const String saPromoCodesToggle =
+      '$baseUrl/super_admin/promo_codes/toggle_status.php';
+  static const String saPromoCodesDelete =
+      '$baseUrl/super_admin/promo_codes/delete.php';
+  // ── Super Admin: Broadcast Notifications ──
+  static const String saNotificationsSend =
+      '$baseUrl/super_admin/notifications/send.php';
+
+  // ── Super Admin: Scheduled Notifications ──
+  static const String saScheduledNotifsGetConfig =
+      '$baseUrl/super_admin/scheduled_notifs/get_config.php';
+  static const String saScheduledNotifsUpdateConfig =
+      '$baseUrl/super_admin/scheduled_notifs/update_config.php';
+  static const String saScheduledNotifsAddMessage =
+      '$baseUrl/super_admin/scheduled_notifs/add_message.php';
+  static const String saScheduledNotifsUpdateMessage =
+      '$baseUrl/super_admin/scheduled_notifs/update_message.php';
+  static const String saScheduledNotifsDeleteMessage =
+      '$baseUrl/super_admin/scheduled_notifs/delete_message.php';
+
   // ── Super Admin: Delivery Zones ──
   static const String saDeliveryZonesGetAll =
       '$baseUrl/super_admin/delivery_zones/get_all.php';

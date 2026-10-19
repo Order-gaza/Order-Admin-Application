@@ -1,52 +1,65 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/providers/api_provider.dart';
 import '../../../../app/constants/api_endpoints.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class VendorMenuController extends GetxController {
-  final isLoading = false.obs;
-  final categories = <Map<String, dynamic>>[].obs;
-  final items = <Map<String, dynamic>>[].obs;
-  final selectedCategoryId = Rxn<String>();
+final vendorMenuProvider = ChangeNotifierProvider<VendorMenuController>((ref) {
+  return VendorMenuController.to;
+});
 
-  @override
-  void onInit() {
-    super.onInit();
+class VendorMenuController extends ChangeNotifier {
+  static VendorMenuController? _instance;
+  static VendorMenuController get to => _instance ??= VendorMenuController();
+
+  bool isLoading = false;
+  List<Map<String, dynamic>> categories = [];
+  List<Map<String, dynamic>> items = [];
+  String? selectedCategoryId;
+
+  VendorMenuController() {
     fetchCategories();
     fetchItems();
+  }
+
+  void selectCategory(String? categoryId) {
+    selectedCategoryId = categoryId;
+    notifyListeners();
   }
 
   Future<void> fetchCategories() async {
     final res = await ApiProvider.get(ApiEndpoints.vendorCategoriesGetAll);
     if (res.success && res.data != null) {
       final d = res.data as Map<String, dynamic>;
-      categories.value =
+      categories =
           List<Map<String, dynamic>>.from(d['categories'] as List? ?? []);
+      notifyListeners();
     }
   }
 
   Future<void> fetchItems() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
-      // Fetch all items — default server limit is 20 (ITEMS_PER_PAGE),
-      // but the vendor needs to see their full menu for management.
       final res = await ApiProvider.get(ApiEndpoints.vendorItemsGetAll,
           queryParams: {'limit': '200'});
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        items.value =
+        items =
             List<Map<String, dynamic>>.from(d['items'] as List? ?? []);
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
   List<Map<String, dynamic>> get filteredItems {
-    if (selectedCategoryId.value == null) return items;
+    if (selectedCategoryId == null) return items;
     return items
         .where((i) =>
-            i['category_id']?.toString() == selectedCategoryId.value)
+            i['category_id']?.toString() == selectedCategoryId)
         .toList();
   }
 
@@ -56,7 +69,7 @@ class VendorMenuController extends GetxController {
     if (res.success) {
       fetchItems();
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }
@@ -67,11 +80,12 @@ class VendorMenuController extends GetxController {
         body: {'item_id': itemId});
     if (res.success) {
       items.removeWhere((i) => i['id'] == itemId);
-      Get.snackbar('Deleted'.tr, 'Item removed'.tr,
+      notifyListeners();
+      AppNavigator.snackbar('Deleted'.tr, 'Item removed'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }
@@ -82,7 +96,7 @@ class VendorMenuController extends GetxController {
         body: {'name': name});
     if (res.success) {
       fetchCategories();
-      Get.snackbar('Added'.tr, 'Category created'.tr,
+      AppNavigator.snackbar('Added'.tr, 'Category created'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF));
     }

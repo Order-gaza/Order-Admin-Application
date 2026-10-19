@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../controllers/sa_categories_controller.dart';
 
-class SaCategoriesView extends GetView<SaCategoriesController> {
+class SaCategoriesView extends ConsumerWidget {
   const SaCategoriesView({super.key});
 
   // Icon map matching the backend icon_name values
@@ -36,8 +38,9 @@ class SaCategoriesView extends GetView<SaCategoriesController> {
       _iconMap[name] ?? Icons.category_rounded;
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(SaCategoriesController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(saCategoriesProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -50,12 +53,12 @@ class SaCategoriesView extends GetView<SaCategoriesController> {
       ),
       drawer: const AppDrawer(currentRoute: AppRoutes.saCategories),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCategoryDialog(context),
+        onPressed: () => _showCategoryDialog(context, controller: controller),
         icon: const Icon(Icons.add),
         label: Text('Add Category'.tr),
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
+      body: Builder(builder: (context) {
+        if (controller.isLoading) {
           return const Center(
               child:
                   CircularProgressIndicator(color: AppColors.primaryOrange));
@@ -82,14 +85,16 @@ class SaCategoriesView extends GetView<SaCategoriesController> {
             padding: const EdgeInsets.all(16),
             itemCount: controller.categories.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => _categoryCard(context, controller.categories[i]),
+            itemBuilder: (_, i) =>
+                _categoryCard(context, controller, controller.categories[i]),
           ),
         );
       }),
     );
   }
 
-  Widget _categoryCard(BuildContext context, Map<String, dynamic> cat) {
+  Widget _categoryCard(BuildContext context, SaCategoriesController controller,
+      Map<String, dynamic> cat) {
     final isActive = (cat['is_active'] ?? 1) == 1;
     final id = cat['id']?.toString() ?? '';
     final iconName = cat['icon_name']?.toString() ?? 'category';
@@ -201,8 +206,12 @@ class SaCategoriesView extends GetView<SaCategoriesController> {
                 color: AppColors.textSecondary, size: 20),
             color: AppColors.darkSurface,
             onSelected: (v) {
-              if (v == 'edit') _showCategoryDialog(context, cat: cat);
-              if (v == 'delete') _confirmDelete(id, cat['name'] ?? '');
+              if (v == 'edit') {
+                _showCategoryDialog(context, controller: controller, cat: cat);
+              }
+              if (v == 'delete') {
+                _confirmDelete(controller, id, cat['name'] ?? '');
+              }
             },
             itemBuilder: (_) => [
               PopupMenuItem(
@@ -231,72 +240,78 @@ class SaCategoriesView extends GetView<SaCategoriesController> {
   }
 
   void _showCategoryDialog(BuildContext context,
-      {Map<String, dynamic>? cat}) {
+      {required SaCategoriesController controller,
+      Map<String, dynamic>? cat}) {
     final isEdit = cat != null;
     final nameCtrl = TextEditingController(text: cat?['name'] ?? '');
     final nameArCtrl = TextEditingController(text: cat?['name_ar'] ?? '');
     final sortCtrl = TextEditingController(
         text: (cat?['sort_order'] ?? 0).toString());
-    final selectedIcon =
-        RxString(cat?['icon_name']?.toString() ?? 'category');
+    String selectedIcon = cat?['icon_name']?.toString() ?? 'category';
 
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: AppColors.darkSurface,
-        title: Text(
-          isEdit ? 'Edit Category'.tr : 'New Category'.tr,
-          style: const TextStyle(color: Colors.white),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Name (English)
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Category name (English)'.tr,
-                  prefixIcon: const Icon(Icons.label),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Name (Arabic)
-              TextField(
-                controller: nameArCtrl,
-                style: const TextStyle(color: Colors.white),
-                textDirection: TextDirection.rtl,
-                decoration: InputDecoration(
-                  hintText: 'اسم الفئة (عربي)',
-                  prefixIcon: const Icon(Icons.translate),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Sort order
-              TextField(
-                controller: sortCtrl,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Sort order'.tr,
-                  prefixIcon: const Icon(Icons.sort),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Icon picker
-              Text('Icon'.tr,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 13)),
-              const SizedBox(height: 8),
-              Obx(() => Wrap(
+    AppNavigator.dialog(
+      StatefulBuilder(
+        builder: (dialogContext, setState) {
+          return AlertDialog(
+            backgroundColor: AppColors.darkSurface,
+            title: Text(
+              isEdit ? 'Edit Category'.tr : 'New Category'.tr,
+              style: const TextStyle(color: Colors.white),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Name (English)
+                  TextField(
+                    controller: nameCtrl,
+                    autofocus: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Category name (English)'.tr,
+                      prefixIcon: const Icon(Icons.label),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Name (Arabic)
+                  TextField(
+                    controller: nameArCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    textDirection: TextDirection.rtl,
+                    decoration: const InputDecoration(
+                      hintText: 'اسم الفئة (عربي)',
+                      prefixIcon: Icon(Icons.translate),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Sort order
+                  TextField(
+                    controller: sortCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Sort order'.tr,
+                      prefixIcon: const Icon(Icons.sort),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Icon picker
+                  Text('Icon'.tr,
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: _iconMap.entries.map((e) {
-                      final isSelected = selectedIcon.value == e.key;
+                      final isSelected = selectedIcon == e.key;
                       return GestureDetector(
-                        onTap: () => selectedIcon.value = e.key,
+                        onTap: () {
+                          setState(() {
+                            selectedIcon = e.key;
+                          });
+                        },
                         child: Container(
                           width: 42,
                           height: 42,
@@ -322,56 +337,60 @@ class SaCategoriesView extends GetView<SaCategoriesController> {
                         ),
                       );
                     }).toList(),
-                  )),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => AppNavigator.back(),
+                  child: Text('Cancel'.tr)),
+              ElevatedButton(
+                onPressed: () {
+                  if (nameCtrl.text.trim().isEmpty) return;
+                  AppNavigator.back();
+                  if (isEdit) {
+                    controller.updateCategory(
+                      id: cat['id']?.toString() ?? '',
+                      name: nameCtrl.text.trim(),
+                      nameAr: nameArCtrl.text.trim(),
+                      iconName: selectedIcon,
+                      sortOrder: int.tryParse(sortCtrl.text) ?? 0,
+                    );
+                  } else {
+                    controller.addCategory(
+                      name: nameCtrl.text.trim(),
+                      nameAr: nameArCtrl.text.trim(),
+                      iconName: selectedIcon,
+                      sortOrder: int.tryParse(sortCtrl.text) ?? 0,
+                    );
+                  }
+                },
+                child: Text(isEdit ? 'Update'.tr : 'Add'.tr),
+              ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Get.back(), child: Text('Cancel'.tr)),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.trim().isEmpty) return;
-              Get.back();
-              if (isEdit) {
-                controller.updateCategory(
-                  id: cat['id']?.toString() ?? '',
-                  name: nameCtrl.text.trim(),
-                  nameAr: nameArCtrl.text.trim(),
-                  iconName: selectedIcon.value,
-                  sortOrder: int.tryParse(sortCtrl.text) ?? 0,
-                );
-              } else {
-                controller.addCategory(
-                  name: nameCtrl.text.trim(),
-                  nameAr: nameArCtrl.text.trim(),
-                  iconName: selectedIcon.value,
-                  sortOrder: int.tryParse(sortCtrl.text) ?? 0,
-                );
-              }
-            },
-            child: Text(isEdit ? 'Update'.tr : 'Add'.tr),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  void _confirmDelete(String id, String name) {
-    Get.dialog(AlertDialog(
+  void _confirmDelete(
+      SaCategoriesController controller, String id, String name) {
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
-      title:
-          Text('Delete Category'.tr, style: const TextStyle(color: Colors.white)),
+      title: Text('Delete Category'.tr,
+          style: const TextStyle(color: Colors.white)),
       content: Text(
           '${'Remove'.tr} "$name"? ${'This will only work if no vendors are using it.'.tr}',
           style: const TextStyle(color: AppColors.textSecondary)),
       actions: [
         TextButton(
-            onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+            onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
+            AppNavigator.back();
             controller.deleteCategory(id);
           },
           child: Text('Delete'.tr),

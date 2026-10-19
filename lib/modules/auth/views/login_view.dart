@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../shared/localization/app_translations.dart';
+import '../../../shared/utils/app_navigator.dart';
 import '../controllers/auth_controller.dart';
 
-class LoginView extends GetView<AuthController> {
+class LoginView extends ConsumerWidget {
   const LoginView({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(authProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       body: SafeArea(
@@ -75,31 +79,31 @@ class LoginView extends GetView<AuthController> {
                 const SizedBox(height: 16),
 
                 // ── Password field ──
-                Obx(() => TextField(
-                      onChanged: (v) => controller.password = v,
-                      obscureText: controller.obscurePassword.value,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Password'.tr,
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            controller.obscurePassword.value
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: AppColors.textSecondary,
-                          ),
-                          onPressed: controller.togglePasswordVisibility,
-                        ),
+                TextField(
+                  onChanged: (v) => controller.password = v,
+                  obscureText: controller.obscurePassword,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Password'.tr,
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        controller.obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppColors.textSecondary,
                       ),
-                    )),
+                      onPressed: controller.togglePasswordVisibility,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 12),
 
                 // ── Forgot password ──
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () => Get.toNamed(AppRoutes.forgotPassword),
+                    onPressed: () => AppNavigator.toNamed(AppRoutes.forgotPassword),
                     child: Text(
                       'Forgot Password?'.tr,
                       style: const TextStyle(
@@ -112,11 +116,8 @@ class LoginView extends GetView<AuthController> {
                 const SizedBox(height: 8),
 
                 // ── Error message ──
-                Obx(() {
-                  if (controller.errorMessage.value.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return Container(
+                if (controller.errorMessage.isNotEmpty)
+                  Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(12),
@@ -133,40 +134,39 @@ class LoginView extends GetView<AuthController> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            controller.errorMessage.value,
+                            controller.errorMessage,
                             style: const TextStyle(
                                 color: AppColors.error, fontSize: 13),
                           ),
                         ),
                       ],
                     ),
-                  );
-                }),
+                  ),
 
                 // ── Login button ──
-                Obx(() => SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: controller.isLoading.value
-                            ? null
-                            : controller.login,
-                        child: controller.isLoading.value
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : Text(
-                                'Sign In'.tr,
-                                style: const TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600),
-                              ),
-                      ),
-                    )),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: controller.isLoading
+                        ? null
+                        : controller.login,
+                    child: controller.isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : Text(
+                            'Sign In'.tr,
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                  ),
+                ),
 
                 const SizedBox(height: 16),
 
@@ -175,7 +175,7 @@ class LoginView extends GetView<AuthController> {
                   width: double.infinity,
                   height: 52,
                   child: OutlinedButton.icon(
-                    onPressed: () => Get.toNamed(AppRoutes.vendorRegister),
+                    onPressed: () => AppNavigator.toNamed(AppRoutes.vendorRegister),
                     icon: const Icon(Icons.store_outlined,
                         color: AppColors.primaryOrange),
                     label: Text('Register as Vendor'.tr,

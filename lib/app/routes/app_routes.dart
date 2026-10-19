@@ -26,6 +26,12 @@ abstract class AppRoutes {
   static const String saAddZone = '/sa/delivery-zones/add';
   static const String saCategories = '/sa/categories';
   static const String saProfile = '/sa/profile';
+  static const String saPointsConfig = '/sa/points-config';
+  static const String saPromoCodes = '/sa/promo-codes';
+  static const String saPromoCodeDetail = '/sa/promo-code-detail';
+  static const String saPromoCodeForm = '/sa/promo-code-form';
+  static const String saNotifications = '/sa/notifications';
+  static const String saScheduledNotifs = '/sa/scheduled-notifs';
 
   // Admin
   static const String adminDashboard = '/admin/dashboard';

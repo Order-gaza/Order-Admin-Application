@@ -1,36 +1,50 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/providers/api_provider.dart';
 import '../../../../app/constants/api_endpoints.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class SaAdminsController extends GetxController {
-  final isLoading = false.obs;
-  final admins = <Map<String, dynamic>>[].obs;
-  final searchQuery = ''.obs;
+final saAdminsProvider = ChangeNotifierProvider<SaAdminsController>((ref) {
+  return SaAdminsController.to;
+});
 
-  @override
-  void onInit() {
-    super.onInit();
+class SaAdminsController extends ChangeNotifier {
+  static SaAdminsController? _instance;
+  static SaAdminsController get to => _instance ??= SaAdminsController();
+
+  bool isLoading = false;
+  List<Map<String, dynamic>> admins = [];
+  String searchQuery = '';
+
+  SaAdminsController() {
     fetchAdmins();
   }
 
+  void setSearchQuery(String q) {
+    searchQuery = q;
+    notifyListeners();
+  }
+
   Future<void> fetchAdmins() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.get(ApiEndpoints.saAdminsGetAll);
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        admins.value =
+        admins =
             List<Map<String, dynamic>>.from(d['admins'] as List? ?? []);
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
   List<Map<String, dynamic>> get filtered {
-    if (searchQuery.value.isEmpty) return admins;
-    final q = searchQuery.value.toLowerCase();
+    if (searchQuery.isEmpty) return admins;
+    final q = searchQuery.toLowerCase();
     return admins.where((a) {
       return (a['name'] ?? '').toLowerCase().contains(q) ||
           (a['email'] ?? '').toLowerCase().contains(q);
@@ -43,16 +57,15 @@ class SaAdminsController extends GetxController {
       body: {'admin_id': adminId},
     );
     if (res.success) {
-      // Refetch to get accurate server state
       await fetchAdmins();
-      Get.snackbar(
+      AppNavigator.snackbar(
         'Success',
         res.message?.tr ?? 'Status updated',
         backgroundColor: const Color(0xFF4CAF50),
         colorText: const Color(0xFFFFFFFF),
       );
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }
@@ -77,11 +90,11 @@ class SaAdminsController extends GetxController {
     );
     if (res.success) {
       fetchAdmins();
-      Get.snackbar('Success'.tr, 'Admin added successfully'.tr,
+      AppNavigator.snackbar('Success'.tr, 'Admin added successfully'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }
@@ -94,11 +107,12 @@ class SaAdminsController extends GetxController {
     );
     if (res.success) {
       admins.removeWhere((a) => a['id'] == adminId);
-      Get.snackbar('Deleted'.tr, 'Admin removed'.tr,
+      notifyListeners();
+      AppNavigator.snackbar('Deleted'.tr, 'Admin removed'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }

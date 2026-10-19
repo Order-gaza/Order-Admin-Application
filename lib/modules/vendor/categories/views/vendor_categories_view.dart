@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../controllers/vendor_categories_controller.dart';
 
-class VendorCategoriesView extends GetView<VendorCategoriesController> {
+class VendorCategoriesView extends ConsumerWidget {
   const VendorCategoriesView({super.key});
 
   static const _iconMap = <String, IconData>{
@@ -35,8 +37,9 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
       _iconMap[name] ?? Icons.category_rounded;
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(VendorCategoriesController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(vendorCategoriesProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -49,12 +52,12 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
       ),
       drawer: const AppDrawer(currentRoute: AppRoutes.vendorCategories),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddSheet(context),
+        onPressed: () => _showAddSheet(context, controller),
         icon: const Icon(Icons.add),
         label: Text('Add Category'.tr),
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
+      body: Builder(builder: (context) {
+        if (controller.isLoading) {
           return const Center(
               child: CircularProgressIndicator(color: AppColors.primaryOrange));
         }
@@ -72,7 +75,7 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
                         color: Colors.white.withValues(alpha: 0.4))),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () => _showAddSheet(context),
+                  onPressed: () => _showAddSheet(context, controller),
                   icon: const Icon(Icons.add),
                   label: Text('Add First Category'.tr),
                 ),
@@ -90,7 +93,7 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
               final cat = controller.categories[i];
               final id = cat['id']?.toString() ?? '';
               final isActive = (cat['is_active'] ?? 1) == 1;
-              return _categoryCard(context, cat, id, isActive);
+              return _categoryCard(context, cat, id, isActive, controller);
             },
           ),
         );
@@ -99,7 +102,7 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
   }
 
   Widget _categoryCard(BuildContext context, Map<String, dynamic> cat,
-      String id, bool isActive) {
+      String id, bool isActive, VendorCategoriesController controller) {
     final iconName = cat['icon_name']?.toString() ?? 'category';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -143,7 +146,7 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
                       style: const TextStyle(
                           color: AppColors.textSecondary, fontSize: 12)),
                 if (cat['items_count'] != null)
-                  Text('${cat['items_count']} ' + 'items'.tr,
+                  Text('${cat['items_count']} ${'items'.tr}',
                       style: const TextStyle(
                           color: AppColors.textSecondary, fontSize: 12)),
               ],
@@ -178,7 +181,7 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
           IconButton(
             icon: const Icon(Icons.delete_outline,
                 color: AppColors.error, size: 20),
-            onPressed: () => _confirmDelete(id),
+            onPressed: () => _confirmDelete(id, controller),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -188,13 +191,15 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
   }
 
   /// Show bottom sheet with available global categories to pick from
-  void _showAddSheet(BuildContext context) {
+  void _showAddSheet(BuildContext context, VendorCategoriesController controller) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.6;
     // Refresh global categories first
     controller.fetchGlobalCategories().then((_) {
-      Get.bottomSheet(
+      if (!context.mounted) return;
+      AppNavigator.bottomSheet(
         Container(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.6,
+            maxHeight: maxHeight,
           ),
           decoration: const BoxDecoration(
             color: AppColors.darkSurface,
@@ -223,7 +228,7 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
               ),
               const Divider(height: 1, color: AppColors.divider),
               Expanded(
-                child: Obx(() {
+                child: Builder(builder: (context) {
                   final available = controller.availableGlobalCategories;
                   if (available.isEmpty) {
                     return Center(
@@ -248,7 +253,7 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
                           gc['icon_name']?.toString() ?? 'category';
                       return ListTile(
                         onTap: () {
-                          Get.back();
+                          AppNavigator.back();
                           controller.subscribeToCategory(
                               gc['id']?.toString() ?? '');
                         },
@@ -291,22 +296,23 @@ class VendorCategoriesView extends GetView<VendorCategoriesController> {
     });
   }
 
-  void _confirmDelete(String id) {
-    Get.dialog(AlertDialog(
+  void _confirmDelete(String id, VendorCategoriesController controller) {
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title: Text('Remove Category'.tr,
           style: const TextStyle(color: Colors.white)),
       content: Text(
-          'Remove this category from your menu? Items in it will not be deleted.'.tr,
-          style: const TextStyle(color: AppColors.textSecondary)),
+        'Remove this category from your menu? Items in it will not be deleted.'.tr,
+        style: const TextStyle(color: AppColors.textSecondary),
+      ),
       actions: [
         TextButton(
-            onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+            onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
+            AppNavigator.back();
             controller.deleteCategory(id);
           },
           child: Text('Delete'.tr),

@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../shared/controllers/language_controller.dart';
 import '../controllers/vendor_menu_controller.dart';
 
-class VendorMenuView extends GetView<VendorMenuController> {
+class VendorMenuView extends ConsumerWidget {
   const VendorMenuView({super.key});
 
   String _displayName(dynamic data) {
-    if (LanguageController.to.currentLanguage.value == 'ar') {
+    if (LanguageController.to.currentLanguage == 'ar') {
       final ar = data['name_ar']?.toString();
       if (ar != null && ar.isNotEmpty) return ar;
     }
@@ -19,8 +21,9 @@ class VendorMenuView extends GetView<VendorMenuController> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(VendorMenuController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(vendorMenuProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -37,7 +40,7 @@ class VendorMenuView extends GetView<VendorMenuController> {
       drawer: const AppDrawer(currentRoute: AppRoutes.vendorMenu),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Get.toNamed(AppRoutes.vendorAddItem);
+          final result = await AppNavigator.toNamed(AppRoutes.vendorAddItem);
           if (result == true) {
             controller.fetchItems();
           }
@@ -50,23 +53,24 @@ class VendorMenuView extends GetView<VendorMenuController> {
           // ── Category Filter ──
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Obx(() => SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _categoryChip('All'.tr, null),
-                      ...controller.categories.map((c) => _categoryChip(
-                            _displayName(c),
-                            c['id']?.toString(),
-                          )),
-                    ],
-                  ),
-                )),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _categoryChip('All'.tr, null, controller),
+                  ...controller.categories.map((c) => _categoryChip(
+                        _displayName(c),
+                        c['id']?.toString(),
+                        controller,
+                      )),
+                ],
+              ),
+            ),
           ),
           // ── Items ──
           Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
+            child: Builder(builder: (context) {
+              if (controller.isLoading) {
                 return const Center(
                     child: CircularProgressIndicator(
                         color: AppColors.primaryOrange));
@@ -90,16 +94,23 @@ class VendorMenuView extends GetView<VendorMenuController> {
               return RefreshIndicator(
                 color: AppColors.primaryOrange,
                 onRefresh: controller.fetchItems,
-                child: GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.62,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: items.length,
-                  itemBuilder: (_, i) => _itemCard(items[i]),
+                child: LayoutBuilder(
+                  builder: (ctx, _) {
+                    final w = MediaQuery.of(ctx).size.width;
+                    final cols = w > 1200 ? 4 : (w > 800 ? 3 : 2);
+                    final ratio = w > 1200 ? 0.8 : (w > 800 ? 0.72 : 0.62);
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: cols,
+                        childAspectRatio: ratio,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
+                      itemCount: items.length,
+                      itemBuilder: (_, i) => _itemCard(items[i], controller),
+                    );
+                  },
                 ),
               );
             }),
@@ -109,42 +120,40 @@ class VendorMenuView extends GetView<VendorMenuController> {
     );
   }
 
-  Widget _categoryChip(String label, String? categoryId) {
-    return Obx(() {
-      final selected = controller.selectedCategoryId.value == categoryId;
-      return GestureDetector(
-        onTap: () => controller.selectedCategoryId.value = categoryId,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(right: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primaryOrange : AppColors.darkSurface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-                color: selected ? AppColors.primaryOrange : AppColors.divider),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? Colors.white : AppColors.textSecondary,
-              fontSize: 13,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-            ),
+  Widget _categoryChip(String label, String? categoryId, VendorMenuController controller) {
+    final selected = controller.selectedCategoryId == categoryId;
+    return GestureDetector(
+      onTap: () => controller.selectCategory(categoryId),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primaryOrange : AppColors.darkSurface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: selected ? AppColors.primaryOrange : AppColors.divider),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : AppColors.textSecondary,
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
-      );
-    });
+      ),
+    );
   }
 
-  Widget _itemCard(Map<String, dynamic> item) {
+  Widget _itemCard(Map<String, dynamic> item, VendorMenuController controller) {
     final isAvailable = (item['is_available'] ?? 1) == 1;
     final imageUrl = item['image_url'] as String?;
     final hasImage = imageUrl != null && imageUrl.isNotEmpty;
 
     return GestureDetector(
       onTap: () async {
-        final result = await Get.toNamed(
+        final result = await AppNavigator.toNamed(
           AppRoutes.vendorAddItem,
           arguments: item,
         );
@@ -172,10 +181,10 @@ class VendorMenuView extends GetView<VendorMenuController> {
                 height: 100,
                 width: double.infinity,
                 child: hasImage
-                    ? CachedNetworkImage(
+                    ? AppNetworkImage(
                         imageUrl: imageUrl,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
+                        placeholder: () => Container(
                           color: AppColors.primaryOrange.withValues(alpha: 0.1),
                           child: const Center(
                             child: SizedBox(
@@ -188,7 +197,7 @@ class VendorMenuView extends GetView<VendorMenuController> {
                             ),
                           ),
                         ),
-                        errorWidget: (_, __, ___) => Container(
+                        errorWidget: () => Container(
                           color: AppColors.primaryOrange.withValues(alpha: 0.1),
                           child: const Center(
                             child: Icon(Icons.broken_image,
@@ -294,7 +303,7 @@ class VendorMenuView extends GetView<VendorMenuController> {
                           Icons.edit_outlined,
                           AppColors.primaryOrange,
                           () async {
-                            final result = await Get.toNamed(
+                            final result = await AppNavigator.toNamed(
                               AppRoutes.vendorAddItem,
                               arguments: item,
                             );
@@ -306,7 +315,7 @@ class VendorMenuView extends GetView<VendorMenuController> {
                         _actionIcon(
                           Icons.delete_outline,
                           AppColors.error,
-                          () => _confirmDelete(item),
+                          () => _confirmDelete(item, controller),
                         ),
                       ],
                     ),
@@ -334,8 +343,8 @@ class VendorMenuView extends GetView<VendorMenuController> {
     );
   }
 
-  void _confirmDelete(Map<String, dynamic> item) {
-    Get.dialog(AlertDialog(
+  void _confirmDelete(Map<String, dynamic> item, VendorMenuController controller) {
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title:
           Text('Delete Item'.tr, style: const TextStyle(color: Colors.white)),
@@ -344,11 +353,11 @@ class VendorMenuView extends GetView<VendorMenuController> {
         style: const TextStyle(color: AppColors.textSecondary),
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+        TextButton(onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
+            AppNavigator.back();
             controller.deleteItem(item['id']?.toString() ?? '');
           },
           child: Text('Delete'.tr),

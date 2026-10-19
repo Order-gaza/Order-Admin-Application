@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../data/providers/api_provider.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class SaAddZoneController extends GetxController {
-  final isSaving = false.obs;
+final saAddZoneProvider =
+    ChangeNotifierProvider.autoDispose<SaAddZoneController>((ref) {
+  final ctrl = SaAddZoneController();
+  ctrl.init(AppNavigator.arguments);
+  return ctrl;
+});
+
+class SaAddZoneController extends ChangeNotifier {
+  bool isSaving = false;
 
   // Form fields matching DB columns exactly
   final nameCtrl = TextEditingController();
@@ -20,11 +29,7 @@ class SaAddZoneController extends GetxController {
   bool get isEditMode => _editZoneId != null;
   String? _editZoneId;
 
-  @override
-  void onInit() {
-    super.onInit();
-    // Check if editing
-    final args = Get.arguments;
+  void init(dynamic args) {
     if (args is Map<String, dynamic> && args['id'] != null) {
       _editZoneId = args['id'].toString();
       nameCtrl.text = args['name'] ?? '';
@@ -34,11 +39,12 @@ class SaAddZoneController extends GetxController {
       nearbyExtraFeeCtrl.text = args['nearby_extra_fee']?.toString() ?? '0';
       farExtraFeeCtrl.text = args['far_extra_fee']?.toString() ?? '0';
       estDeliveryTimeCtrl.text = args['estimated_delivery_time']?.toString() ?? '';
+      notifyListeners();
     }
   }
 
   @override
-  void onClose() {
+  void dispose() {
     nameCtrl.dispose();
     minDistanceCtrl.dispose();
     maxDistanceCtrl.dispose();
@@ -46,7 +52,7 @@ class SaAddZoneController extends GetxController {
     nearbyExtraFeeCtrl.dispose();
     farExtraFeeCtrl.dispose();
     estDeliveryTimeCtrl.dispose();
-    super.onClose();
+    super.dispose();
   }
 
   Future<void> save() async {
@@ -75,7 +81,8 @@ class SaAddZoneController extends GetxController {
       return;
     }
 
-    isSaving.value = true;
+    isSaving = true;
+    notifyListeners();
     try {
       final body = <String, String>{
         'name': nameCtrl.text.trim(),
@@ -104,8 +111,8 @@ class SaAddZoneController extends GetxController {
       }
 
       if (res.success) {
-        Get.back(result: true);
-        Get.snackbar(
+        AppNavigator.back(result: true);
+        AppNavigator.snackbar(
           isEditMode ? 'Updated'.tr : 'Created'.tr,
           isEditMode
               ? 'Delivery zone updated'.tr
@@ -119,35 +126,37 @@ class SaAddZoneController extends GetxController {
     } catch (e) {
       _error('Something went wrong'.tr);
     } finally {
-      isSaving.value = false;
+      isSaving = false;
+      notifyListeners();
     }
   }
 
   void _error(String msg) {
-    Get.snackbar('Error'.tr, msg,
+    AppNavigator.snackbar('Error'.tr, msg,
         backgroundColor: const Color(0xFFF44336),
         colorText: const Color(0xFFFFFFFF));
   }
 }
 
-class SaAddZoneView extends StatelessWidget {
+class SaAddZoneView extends ConsumerWidget {
   const SaAddZoneView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final ctrl = Get.put(SaAddZoneController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ctrl = ref.watch(saAddZoneProvider);
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
-        title:
-            Text(ctrl.isEditMode ? 'Edit Delivery Zone'.tr : 'New Delivery Zone'.tr),
+        title: Text(ctrl.isEditMode
+            ? 'Edit Delivery Zone'.tr
+            : 'New Delivery Zone'.tr),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => Get.back(),
+          onPressed: () => AppNavigator.back(),
         ),
         actions: [
-          Obx(() => ctrl.isSaving.value
+          ctrl.isSaving
               ? const Padding(
                   padding: EdgeInsets.all(14),
                   child: SizedBox(
@@ -163,7 +172,7 @@ class SaAddZoneView extends StatelessWidget {
                           color: AppColors.primaryOrange,
                           fontWeight: FontWeight.bold,
                           fontSize: 15)),
-                )),
+                ),
         ],
       ),
       body: SingleChildScrollView(
@@ -246,7 +255,8 @@ class SaAddZoneView extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Max distance must be greater than min distance. Use consecutive ranges (e.g. 0–2, 2.01–5, 5.01–10).'.tr,
+                      'Max distance must be greater than min distance. Use consecutive ranges (e.g. 0–2, 2.01–5, 5.01–10).'
+                          .tr,
                       style: const TextStyle(
                           color: AppColors.info, fontSize: 11),
                     ),
@@ -329,7 +339,8 @@ class SaAddZoneView extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Nearby extra fee is added for short-distance surcharges. Far extra fee is added for long-distance orders within this zone.'.tr,
+                      'Nearby extra fee is added for short-distance surcharges. Far extra fee is added for long-distance orders within this zone.'
+                          .tr,
                       style: const TextStyle(
                           color: AppColors.goldenYellow, fontSize: 11),
                     ),
@@ -356,20 +367,20 @@ class SaAddZoneView extends StatelessWidget {
             // ── Submit ──
             SizedBox(
               width: double.infinity,
-              child: Obx(() => ElevatedButton.icon(
-                    onPressed: ctrl.isSaving.value ? null : ctrl.save,
-                    icon: Icon(ctrl.isEditMode
-                        ? Icons.save_outlined
-                        : Icons.add_location_alt),
-                    label: Text(ctrl.isSaving.value
-                        ? 'Saving...'.tr
-                        : ctrl.isEditMode
-                            ? 'Save Changes'.tr
-                            : 'Create Zone'.tr),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  )),
+              child: ElevatedButton.icon(
+                onPressed: ctrl.isSaving ? null : ctrl.save,
+                icon: Icon(ctrl.isEditMode
+                    ? Icons.save_outlined
+                    : Icons.add_location_alt),
+                label: Text(ctrl.isSaving
+                    ? 'Saving...'.tr
+                    : ctrl.isEditMode
+                        ? 'Save Changes'.tr
+                        : 'Create Zone'.tr),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
             ),
             const SizedBox(height: 24),
           ],

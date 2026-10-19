@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../data/providers/api_provider.dart';
 import '../../app/constants/api_endpoints.dart';
 import '../../app/routes/app_routes.dart';
 import '../../modules/auth/controllers/auth_controller.dart';
+import '../../shared/localization/app_translations.dart';
+import '../../shared/utils/app_navigator.dart';
 
-class ProfileController extends GetxController {
-  final isLoading = false.obs;
-  final isSaving = false.obs;
+class ProfileController extends ChangeNotifier {
+  static ProfileController? _instance;
+  static ProfileController get to => _instance ??= ProfileController();
+
+  bool isLoading = false;
+  bool isSaving = false;
 
   // Current profile data
-  final name = ''.obs;
-  final email = ''.obs;
-  final phone = ''.obs;
+  String name = '';
+  String email = '';
+  String phone = '';
 
   // Text Controllers (for editing)
   final nameCtrl = TextEditingController();
@@ -23,22 +28,37 @@ class ProfileController extends GetxController {
   final confirmPassCtrl = TextEditingController();
 
   // Password visibility toggles
-  final obscureCurrent = true.obs;
-  final obscureNew = true.obs;
-  final obscureConfirm = true.obs;
+  bool obscureCurrent = true;
+  bool obscureNew = true;
+  bool obscureConfirm = true;
+
+  void toggleCurrent() {
+    obscureCurrent = !obscureCurrent;
+    notifyListeners();
+  }
+
+  void toggleNew() {
+    obscureNew = !obscureNew;
+    notifyListeners();
+  }
+
+  void toggleConfirm() {
+    obscureConfirm = !obscureConfirm;
+    notifyListeners();
+  }
 
   // Vendor-specific
-  final vendorName = ''.obs;
-  final vendorPhone = ''.obs;
-  final vendorAddress = ''.obs;
-  final vendorDescription = ''.obs;
-  final vendorLogoUrl = ''.obs;
-  final vendorCoverUrl = ''.obs;
-  final vendorStatus = ''.obs;
-  final isVendorOpen = false.obs;
-  final openingTime = ''.obs;
-  final closingTime = ''.obs;
-  final estDeliveryTime = ''.obs;
+  String vendorName = '';
+  String vendorPhone = '';
+  String vendorAddress = '';
+  String vendorDescription = '';
+  String vendorLogoUrl = '';
+  String vendorCoverUrl = '';
+  String vendorStatus = '';
+  bool isVendorOpen = false;
+  String openingTime = '';
+  String closingTime = '';
+  String estDeliveryTime = '';
 
   final vendorNameCtrl = TextEditingController();
   final vendorPhoneCtrl = TextEditingController();
@@ -48,17 +68,16 @@ class ProfileController extends GetxController {
   final closingTimeCtrl = TextEditingController();
   final estDeliveryTimeCtrl = TextEditingController();
 
-  final isUploadingLogo = false.obs;
-  final isUploadingCover = false.obs;
+  bool isUploadingLogo = false;
+  bool isUploadingCover = false;
 
-  @override
-  void onInit() {
-    super.onInit();
+  ProfileController() {
+    _instance = this;
     fetchProfile();
   }
 
   @override
-  void onClose() {
+  void dispose() {
     nameCtrl.dispose();
     phoneCtrl.dispose();
     currentPassCtrl.dispose();
@@ -71,79 +90,86 @@ class ProfileController extends GetxController {
     openingTimeCtrl.dispose();
     closingTimeCtrl.dispose();
     estDeliveryTimeCtrl.dispose();
-    super.onClose();
+    super.dispose();
   }
 
   Future<void> fetchProfile() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.get(ApiEndpoints.profileGet);
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        name.value = d['name'] ?? '';
-        email.value = d['email'] ?? '';
-        phone.value = d['phone'] ?? '';
-        nameCtrl.text = name.value;
-        phoneCtrl.text = phone.value;
+        name = d['name'] ?? '';
+        email = d['email'] ?? '';
+        phone = d['phone'] ?? '';
+        nameCtrl.text = name;
+        phoneCtrl.text = phone;
 
         // Vendor-specific
         if (d['vendor'] != null) {
           final v = d['vendor'] as Map<String, dynamic>;
-          vendorName.value = v['name'] ?? '';
-          vendorPhone.value = v['phone'] ?? '';
-          vendorAddress.value = v['address'] ?? '';
-          vendorDescription.value = v['description'] ?? '';
-          vendorLogoUrl.value = v['logo_url'] ?? '';
-          vendorCoverUrl.value = v['cover_url'] ?? '';
-          vendorStatus.value = v['status'] ?? 'pending';
-          isVendorOpen.value = (v['is_currently_open'] ?? v['is_open'] ?? 0) == 1;
-          openingTime.value = v['opening_time'] ?? '';
-          closingTime.value = v['closing_time'] ?? '';
-          estDeliveryTime.value = v['estimated_delivery_time']?.toString() ?? '';
-          vendorNameCtrl.text = vendorName.value;
-          vendorPhoneCtrl.text = vendorPhone.value;
-          vendorAddressCtrl.text = vendorAddress.value;
-          vendorDescCtrl.text = vendorDescription.value;
-          openingTimeCtrl.text = openingTime.value;
-          closingTimeCtrl.text = closingTime.value;
-          estDeliveryTimeCtrl.text = estDeliveryTime.value;
+          vendorName = v['name'] ?? '';
+          vendorPhone = v['phone'] ?? '';
+          vendorAddress = v['address'] ?? '';
+          vendorDescription = v['description'] ?? '';
+          vendorLogoUrl = v['logo_url'] ?? '';
+          vendorCoverUrl = v['cover_url'] ?? '';
+          vendorStatus = v['status'] ?? 'pending';
+          isVendorOpen = (v['is_currently_open'] ?? v['is_open'] ?? 0) == 1;
+          openingTime = v['opening_time'] ?? '';
+          closingTime = v['closing_time'] ?? '';
+          estDeliveryTime = v['estimated_delivery_time']?.toString() ?? '';
+          vendorNameCtrl.text = vendorName;
+          vendorPhoneCtrl.text = vendorPhone;
+          vendorAddressCtrl.text = vendorAddress;
+          vendorDescCtrl.text = vendorDescription;
+          openingTimeCtrl.text = openingTime;
+          closingTimeCtrl.text = closingTime;
+          estDeliveryTimeCtrl.text = estDeliveryTime;
         }
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
   Future<bool> updateProfile() async {
-    isSaving.value = true;
+    isSaving = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.post(ApiEndpoints.profileUpdate, body: {
         'name': nameCtrl.text,
         'phone': phoneCtrl.text,
       });
       if (res.success) {
-        name.value = nameCtrl.text;
-        phone.value = phoneCtrl.text;
+        name = nameCtrl.text;
+        phone = phoneCtrl.text;
+        notifyListeners();
         return true;
       } else {
-        Get.snackbar('Error'.tr, res.message?.tr ?? 'Update failed'.tr,
+        AppNavigator.snackbar(
+            'Error'.tr, res.message?.tr ?? 'Update failed'.tr,
             backgroundColor: const Color(0xFFF44336),
             colorText: const Color(0xFFFFFFFF));
         return false;
       }
     } finally {
-      isSaving.value = false;
+      isSaving = false;
+      notifyListeners();
     }
   }
 
   Future<void> changePassword() async {
     if (newPassCtrl.text != confirmPassCtrl.text) {
-      Get.snackbar('Error'.tr, 'Passwords do not match'.tr,
+      AppNavigator.snackbar('Error'.tr, 'Passwords do not match'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
       return;
     }
-    isSaving.value = true;
+    isSaving = true;
+    notifyListeners();
     try {
       final res =
           await ApiProvider.post(ApiEndpoints.profileChangePassword, body: {
@@ -155,7 +181,7 @@ class ProfileController extends GetxController {
         currentPassCtrl.clear();
         newPassCtrl.clear();
         confirmPassCtrl.clear();
-        Get.snackbar(
+        AppNavigator.snackbar(
           'Password Changed'.tr,
           'Logging out for security. Please login with your new password.'.tr,
           backgroundColor: const Color(0xFF4CAF50),
@@ -164,20 +190,22 @@ class ProfileController extends GetxController {
         );
         Future.delayed(const Duration(seconds: 3), () {
           ApiProvider.clearAuth();
-          Get.offAllNamed(AppRoutes.login);
+          AppNavigator.offAllNamed(AppRoutes.login);
         });
       } else {
-        Get.snackbar('Error'.tr, res.message?.tr ?? 'Change failed'.tr,
+        AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Change failed'.tr,
             backgroundColor: const Color(0xFFF44336),
             colorText: const Color(0xFFFFFFFF));
       }
     } finally {
-      isSaving.value = false;
+      isSaving = false;
+      notifyListeners();
     }
   }
 
   Future<bool> updateVendorProfile() async {
-    isSaving.value = true;
+    isSaving = true;
+    notifyListeners();
     try {
       final res =
           await ApiProvider.post(ApiEndpoints.vendorProfileUpdate, body: {
@@ -190,25 +218,27 @@ class ProfileController extends GetxController {
         'estimated_delivery_time': estDeliveryTimeCtrl.text,
       });
       if (res.success) {
-        vendorName.value = vendorNameCtrl.text;
-        openingTime.value = openingTimeCtrl.text;
-        closingTime.value = closingTimeCtrl.text;
-        estDeliveryTime.value = estDeliveryTimeCtrl.text;
+        vendorName = vendorNameCtrl.text;
+        openingTime = openingTimeCtrl.text;
+        closingTime = closingTimeCtrl.text;
+        estDeliveryTime = estDeliveryTimeCtrl.text;
+        notifyListeners();
         return true;
       } else {
-        Get.snackbar('Error'.tr, res.message?.tr ?? 'Update failed'.tr,
+        AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Update failed'.tr,
             backgroundColor: const Color(0xFFF44336),
             colorText: const Color(0xFFFFFFFF));
         return false;
       }
     } finally {
-      isSaving.value = false;
+      isSaving = false;
+      notifyListeners();
     }
   }
 
   Future<void> toggleVendorOpen() async {
-    if (vendorStatus.value != 'approved') {
-      Get.snackbar('Not Allowed'.tr,
+    if (vendorStatus != 'approved') {
+      AppNavigator.snackbar('Not Allowed'.tr,
           'Your store must be approved before you can open it'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
@@ -216,13 +246,14 @@ class ProfileController extends GetxController {
     }
     final res = await ApiProvider.post(ApiEndpoints.vendorToggleOpen, body: {});
     if (res.success) {
-      isVendorOpen.value = !isVendorOpen.value;
-      Get.snackbar(
-        isVendorOpen.value ? 'Open'.tr : 'Closed'.tr,
-        isVendorOpen.value
+      isVendorOpen = !isVendorOpen;
+      notifyListeners();
+      AppNavigator.snackbar(
+        isVendorOpen ? 'Open'.tr : 'Closed'.tr,
+        isVendorOpen
             ? 'Your store is now open'.tr
             : 'Your store is now closed'.tr,
-        backgroundColor: isVendorOpen.value
+        backgroundColor: isVendorOpen
             ? const Color(0xFF4CAF50)
             : const Color(0xFFF44336),
         colorText: const Color(0xFFFFFFFF),
@@ -240,7 +271,8 @@ class ProfileController extends GetxController {
     );
     if (picked == null) return;
 
-    isUploadingLogo.value = true;
+    isUploadingLogo = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.uploadMultipart(
         ApiEndpoints.vendorProfileUploadLogo,
@@ -249,21 +281,23 @@ class ProfileController extends GetxController {
       );
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        vendorLogoUrl.value = d['logo_url'] ?? '';
-        Get.snackbar('Uploaded'.tr, 'Logo updated successfully'.tr,
+        vendorLogoUrl = d['logo_url'] ?? '';
+        notifyListeners();
+        AppNavigator.snackbar('Uploaded'.tr, 'Logo updated successfully'.tr,
             backgroundColor: const Color(0xFF4CAF50),
             colorText: const Color(0xFFFFFFFF));
       } else {
-        Get.snackbar('Error'.tr, res.message?.tr ?? 'Upload failed'.tr,
+        AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Upload failed'.tr,
             backgroundColor: const Color(0xFFF44336),
             colorText: const Color(0xFFFFFFFF));
       }
     } catch (e) {
-      Get.snackbar('Error'.tr, 'Failed to upload logo'.tr,
+      AppNavigator.snackbar('Error'.tr, 'Failed to upload logo'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     } finally {
-      isUploadingLogo.value = false;
+      isUploadingLogo = false;
+      notifyListeners();
     }
   }
 
@@ -277,7 +311,8 @@ class ProfileController extends GetxController {
     );
     if (picked == null) return;
 
-    isUploadingCover.value = true;
+    isUploadingCover = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.uploadMultipart(
         ApiEndpoints.vendorProfileUploadCover,
@@ -286,21 +321,23 @@ class ProfileController extends GetxController {
       );
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        vendorCoverUrl.value = d['cover_url'] ?? '';
-        Get.snackbar('Uploaded'.tr, 'Cover image updated'.tr,
+        vendorCoverUrl = d['cover_url'] ?? '';
+        notifyListeners();
+        AppNavigator.snackbar('Uploaded'.tr, 'Cover image updated'.tr,
             backgroundColor: const Color(0xFF4CAF50),
             colorText: const Color(0xFFFFFFFF));
       } else {
-        Get.snackbar('Error'.tr, res.message?.tr ?? 'Upload failed'.tr,
+        AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Upload failed'.tr,
             backgroundColor: const Color(0xFFF44336),
             colorText: const Color(0xFFFFFFFF));
       }
     } catch (e) {
-      Get.snackbar('Error'.tr, 'Failed to upload cover'.tr,
+      AppNavigator.snackbar('Error'.tr, 'Failed to upload cover'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     } finally {
-      isUploadingCover.value = false;
+      isUploadingCover = false;
+      notifyListeners();
     }
   }
 
@@ -326,28 +363,29 @@ class ProfileController extends GetxController {
           '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
       if (isOpening) {
         openingTimeCtrl.text = formatted;
-        openingTime.value = formatted;
+        openingTime = formatted;
       } else {
         closingTimeCtrl.text = formatted;
-        closingTime.value = formatted;
+        closingTime = formatted;
       }
+      notifyListeners();
     }
   }
 
   void logout() {
-    Get.dialog(AlertDialog(
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: const Color(0xFF2C2C2C),
       title: Text('Logout'.tr, style: const TextStyle(color: Colors.white)),
       content: Text('Are you sure you want to logout?'.tr,
           style: const TextStyle(color: Color(0xFF9E9E9E))),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+        TextButton(onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF44336)),
           onPressed: () {
-            Get.back();
-            Get.put(AuthController()).logout();
+            AppNavigator.back();
+            AuthController.to.logout();
           },
           child: Text('Logout'.tr),
         ),
@@ -356,12 +394,16 @@ class ProfileController extends GetxController {
   }
 
   void navigateToCorrectDashboard() {
-    if (Get.currentRoute == AppRoutes.saProfile) {
-      Get.offAllNamed(AppRoutes.saDashboard);
-    } else if (Get.currentRoute == AppRoutes.adminProfile) {
-      Get.offAllNamed(AppRoutes.adminDashboard);
-    } else if (Get.currentRoute == AppRoutes.vendorProfile) {
-      Get.offAllNamed(AppRoutes.vendorDashboard);
+    final role = ApiProvider.storedRole;
+    if (role == 'vendor') {
+      AppNavigator.offAllNamed(AppRoutes.vendorDashboard);
+    } else if (role == 'admin') {
+      AppNavigator.offAllNamed(AppRoutes.adminDashboard);
+    } else {
+      AppNavigator.offAllNamed(AppRoutes.saDashboard);
     }
   }
 }
+
+final profileProvider =
+    ChangeNotifierProvider<ProfileController>((ref) => ProfileController.to);

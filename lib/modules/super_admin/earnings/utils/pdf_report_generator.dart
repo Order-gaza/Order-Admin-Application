@@ -1,11 +1,12 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import '../../../../../shared/utils/app_navigator.dart';
+import '../../../../../shared/utils/pdf_saver_stub.dart'
+    if (dart.library.html) '../../../../../shared/utils/pdf_saver_web.dart'
+    if (dart.library.io) '../../../../../shared/utils/pdf_saver_io.dart';
 
 class PdfReportGenerator {
   static pw.Font? _arabicFont;
@@ -34,7 +35,7 @@ class PdfReportGenerator {
       final fmt = NumberFormat.currency(symbol: 'ILS ', decimalDigits: 2);
       final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
 
-      final isAr = Get.locale?.languageCode == 'ar';
+      final isAr = AppNavigator.currentLocale.languageCode == 'ar';
 
       if (_arabicFont == null) {
         try {
@@ -143,7 +144,7 @@ class PdfReportGenerator {
               pw.SizedBox(height: 10),
 
               // Data Table
-              pw.Table.fromTextArray(
+              pw.TableHelper.fromTextArray(
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
                 headerDecoration: pw.BoxDecoration(color: primaryOrange),
                 cellStyle: const pw.TextStyle(fontSize: 10),
@@ -180,7 +181,7 @@ class PdfReportGenerator {
                       fmt.format(saEarning),
                       status,
                     ];
-                  }).toList(),
+                  }),
                 ],
               ),
             ];
@@ -201,23 +202,8 @@ class PdfReportGenerator {
       final reportPrefix = isAr ? 'التقرير_المالي' : 'Financial_Report';
       final filename = "order-$reportPrefix-$timeFormatted.pdf";
 
-      Directory? directory;
-      if (Platform.isAndroid) {
-        directory = Directory('/storage/emulated/0/Download');
-        if (!await directory.exists()) {
-          directory = await getExternalStorageDirectory();
-        }
-      } else {
-        directory = await getApplicationDocumentsDirectory();
-      }
-
-      if (directory != null) {
-        final path = '${directory.path}/$filename';
-        final file = File(path);
-        await file.writeAsBytes(bytes);
-        return path;
-      }
-      return null;
+      final path = await saveAndDownloadPdf(bytes, filename);
+      return path;
     } catch (e) {
       assert(() { debugPrint('PDF Generation Error: $e'); return true; }());
       return null;

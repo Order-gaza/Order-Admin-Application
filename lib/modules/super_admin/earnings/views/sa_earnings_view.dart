@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../controllers/sa_earnings_controller.dart';
 
-class SaEarningsView extends GetView<SaEarningsController> {
+class SaEarningsView extends ConsumerWidget {
   const SaEarningsView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(SaEarningsController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(saEarningsProvider);
     final fmt = NumberFormat.currency(symbol: '₪', decimalDigits: 2);
     final dateFmt = DateFormat('dd MMM yyyy');
 
@@ -20,13 +22,12 @@ class SaEarningsView extends GetView<SaEarningsController> {
       appBar: AppBar(
         title: Text('Earnings'.tr),
         actions: [
-          Obx(() => controller.fromDate.value != null
-              ? IconButton(
-                  icon: const Icon(Icons.close, color: AppColors.error),
-                  tooltip: 'Clear Filter'.tr,
-                  onPressed: controller.clearDateFilter,
-                )
-              : const SizedBox.shrink()),
+          if (controller.fromDate != null)
+            IconButton(
+              icon: const Icon(Icons.close, color: AppColors.error),
+              tooltip: 'Clear Filter'.tr,
+              onPressed: controller.clearDateFilter,
+            ),
           IconButton(
             icon: const Icon(Icons.date_range),
             onPressed: () => controller.pickDateRange(context),
@@ -43,7 +44,7 @@ class SaEarningsView extends GetView<SaEarningsController> {
               icon: const Icon(Icons.done_all),
               tooltip: 'Collect All'.tr,
               onPressed: () {
-                Get.dialog(AlertDialog(
+                AppNavigator.dialog(AlertDialog(
                   backgroundColor: AppColors.darkSurface,
                   title: Text('Collect All'.tr,
                       style: const TextStyle(color: Colors.white)),
@@ -53,11 +54,11 @@ class SaEarningsView extends GetView<SaEarningsController> {
                           const TextStyle(color: AppColors.textSecondary)),
                   actions: [
                     TextButton(
-                        onPressed: () => Get.back(),
+                        onPressed: () => AppNavigator.back(),
                         child: Text('Cancel'.tr)),
                     ElevatedButton(
                       onPressed: () {
-                        Get.back();
+                        AppNavigator.back();
                         controller.markBulkCollected();
                       },
                       child: Text('Collect All'.tr),
@@ -68,8 +69,8 @@ class SaEarningsView extends GetView<SaEarningsController> {
         ],
       ),
       drawer: const AppDrawer(currentRoute: AppRoutes.saEarnings),
-      body: Obx(() {
-        if (controller.isLoading.value) {
+      body: Builder(builder: (context) {
+        if (controller.isLoading) {
           return const Center(
               child: CircularProgressIndicator(
                   color: AppColors.primaryOrange));
@@ -84,11 +85,8 @@ class SaEarningsView extends GetView<SaEarningsController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Date filter indicator
-                Obx(() {
-                  if (controller.fromDate.value == null) {
-                    return const SizedBox.shrink();
-                  }
-                  return Container(
+                if (controller.fromDate != null && controller.toDate != null)
+                  Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.symmetric(
@@ -105,45 +103,51 @@ class SaEarningsView extends GetView<SaEarningsController> {
                             size: 16, color: AppColors.info),
                         const SizedBox(width: 8),
                         Text(
-                          '${dateFmt.format(controller.fromDate.value!)}  →  ${dateFmt.format(controller.toDate.value!)}',
+                          '${dateFmt.format(controller.fromDate!)}  →  ${dateFmt.format(controller.toDate!)}',
                           style: const TextStyle(
                               color: AppColors.info, fontSize: 13),
                         ),
                       ],
                     ),
-                  );
-                }),
+                  ),
 
                 // ── Summary Cards ──
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.1,
-                  children: [
-                    _summaryCard(
-                        'My Total Earnings'.tr,
-                        fmt.format(controller.totalSaEarnings.value),
-                        Icons.account_balance_wallet,
-                        AppColors.primaryOrange),
-                    _summaryCard(
-                        'This Month'.tr,
-                        fmt.format(controller.thisMonthEarnings.value),
-                        Icons.calendar_today,
-                        AppColors.success),
-                    _summaryCard(
-                        'Service Fees'.tr,
-                        fmt.format(controller.totalServiceFees.value),
-                        Icons.receipt_long,
-                        AppColors.info),
-                    _summaryCard(
-                        'Commissions'.tr,
-                        fmt.format(controller.totalCommissions.value),
-                        Icons.percent,
-                        AppColors.goldenYellow),
-                  ],
+                LayoutBuilder(
+                  builder: (ctx, _) {
+                    final w = MediaQuery.of(ctx).size.width;
+                    final cols = w > 1200 ? 4 : (w > 800 ? 3 : 2);
+                    final ratio = w > 1200 ? 1.6 : (w > 800 ? 1.4 : 1.1);
+                    return GridView.count(
+                      crossAxisCount: cols,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: ratio,
+                      children: [
+                        _summaryCard(
+                            'My Total Earnings'.tr,
+                            fmt.format(controller.totalSaEarnings),
+                            Icons.account_balance_wallet,
+                            AppColors.primaryOrange),
+                        _summaryCard(
+                            'This Month'.tr,
+                            fmt.format(controller.thisMonthEarnings),
+                            Icons.calendar_today,
+                            AppColors.success),
+                        _summaryCard(
+                            'Service Fees'.tr,
+                            fmt.format(controller.totalServiceFees),
+                            Icons.receipt_long,
+                            AppColors.info),
+                        _summaryCard(
+                            'Commissions'.tr,
+                            fmt.format(controller.totalCommissions),
+                            Icons.percent,
+                            AppColors.goldenYellow),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
 
@@ -153,7 +157,7 @@ class SaEarningsView extends GetView<SaEarningsController> {
                     Expanded(
                       child: _miniStat(
                         'Collected'.tr,
-                        fmt.format(controller.totalCollected.value),
+                        fmt.format(controller.totalCollected),
                         AppColors.success,
                       ),
                     ),
@@ -161,7 +165,7 @@ class SaEarningsView extends GetView<SaEarningsController> {
                     Expanded(
                       child: _miniStat(
                         'Uncollected'.tr,
-                        fmt.format(controller.totalUncollected.value),
+                        fmt.format(controller.totalUncollected),
                         AppColors.warning,
                       ),
                     ),
@@ -173,7 +177,7 @@ class SaEarningsView extends GetView<SaEarningsController> {
                     Expanded(
                       child: _miniStat(
                         'Orders'.tr,
-                        '${controller.totalOrders.value}',
+                        '${controller.totalOrders}',
                         AppColors.info,
                       ),
                     ),
@@ -181,7 +185,7 @@ class SaEarningsView extends GetView<SaEarningsController> {
                     Expanded(
                       child: _miniStat(
                         'Avg / Order'.tr,
-                        fmt.format(controller.avgPerOrder.value),
+                        fmt.format(controller.avgPerOrder),
                         AppColors.primaryOrange,
                       ),
                     ),
@@ -243,7 +247,7 @@ class SaEarningsView extends GetView<SaEarningsController> {
                     separatorBuilder: (_, __) =>
                         const SizedBox(height: 8),
                     itemBuilder: (_, i) =>
-                        _earningRow(controller.earnings[i], fmt, dateFmt),
+                        _earningRow(controller, controller.earnings[i], fmt, dateFmt),
                   ),
               ],
             ),
@@ -384,7 +388,7 @@ class SaEarningsView extends GetView<SaEarningsController> {
   }
 
   Widget _earningRow(
-      Map<String, dynamic> e, NumberFormat fmt, DateFormat dateFmt) {
+      SaEarningsController controller, Map<String, dynamic> e, NumberFormat fmt, DateFormat dateFmt) {
     final serviceFee =
         double.tryParse(e['service_fee_earned']?.toString() ?? '0') ?? 0;
     final commission =

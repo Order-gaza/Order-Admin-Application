@@ -1,29 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../data/providers/api_provider.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class SaCategoriesController extends GetxController {
-  final isLoading = false.obs;
-  final categories = <Map<String, dynamic>>[].obs;
+final saCategoriesProvider =
+    ChangeNotifierProvider<SaCategoriesController>((ref) {
+  return SaCategoriesController.to;
+});
 
-  @override
-  void onInit() {
-    super.onInit();
+class SaCategoriesController extends ChangeNotifier {
+  static SaCategoriesController? _instance;
+  static SaCategoriesController get to =>
+      _instance ??= SaCategoriesController();
+
+  bool isLoading = false;
+  List<Map<String, dynamic>> categories = [];
+
+  SaCategoriesController() {
     fetchCategories();
   }
 
   Future<void> fetchCategories() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.get(ApiEndpoints.saCategoriesGetAll);
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        categories.value =
+        categories =
             List<Map<String, dynamic>>.from(d['categories'] as List? ?? []);
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -43,10 +54,10 @@ class SaCategoriesController extends GetxController {
     final res = await ApiProvider.post(ApiEndpoints.saCategoriesAdd, body: body);
     if (res.success) {
       await fetchCategories();
-      Get.snackbar('Added'.tr, 'Category created'.tr,
+      AppNavigator.snackbar('Added'.tr, 'Category created'.tr,
           backgroundColor: const Color(0xFF4CAF50), colorText: Colors.white);
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336), colorText: Colors.white);
     }
   }
@@ -70,10 +81,10 @@ class SaCategoriesController extends GetxController {
         await ApiProvider.post(ApiEndpoints.saCategoriesUpdate, body: body);
     if (res.success) {
       await fetchCategories();
-      Get.snackbar('Updated'.tr, 'Category updated'.tr,
+      AppNavigator.snackbar('Updated'.tr, 'Category updated'.tr,
           backgroundColor: const Color(0xFF4CAF50), colorText: Colors.white);
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336), colorText: Colors.white);
     }
   }
@@ -83,10 +94,11 @@ class SaCategoriesController extends GetxController {
         body: {'category_id': id});
     if (res.success) {
       categories.removeWhere((c) => c['id']?.toString() == id);
-      Get.snackbar('Deleted'.tr, 'Category removed'.tr,
+      notifyListeners();
+      AppNavigator.snackbar('Deleted'.tr, 'Category removed'.tr,
           backgroundColor: const Color(0xFF4CAF50), colorText: Colors.white);
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336), colorText: Colors.white);
     }
   }
@@ -97,7 +109,7 @@ class SaCategoriesController extends GetxController {
     if (res.success) {
       await fetchCategories();
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336), colorText: Colors.white);
     }
   }

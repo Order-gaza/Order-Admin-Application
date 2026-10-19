@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/providers/api_provider.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/app_constants.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../shared/widgets/stat_card.dart';
 import '../../../../shared/widgets/order_status_badge.dart';
 import '../../../../shared/widgets/notification_bell.dart';
 import '../controllers/vendor_dashboard_controller.dart';
 
-class VendorDashboardView extends GetView<VendorDashboardController> {
+class VendorDashboardView extends ConsumerWidget {
   const VendorDashboardView({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(vendorDashboardProvider);
     final fmt = NumberFormat.currency(symbol: '₪', decimalDigits: 2);
     final userName = ApiProvider.storedUserName ?? 'Vendor';
 
@@ -29,11 +32,11 @@ class VendorDashboardView extends GetView<VendorDashboardController> {
         ],
       ),
       drawer: const AppDrawer(currentRoute: AppRoutes.vendorDashboard),
-      body: Obx(() {
-        if (controller.isLoading.value) {
+      body: Builder(builder: (context) {
+        if (controller.isLoading) {
           return const Center(child: CircularProgressIndicator(color: AppColors.primaryOrange));
         }
-        if (controller.error.value.isNotEmpty) {
+        if (controller.error.isNotEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
@@ -42,7 +45,7 @@ class VendorDashboardView extends GetView<VendorDashboardController> {
                 children: [
                   const Icon(Icons.error_outline, color: AppColors.error, size: 48),
                   const SizedBox(height: 16),
-                  Text(controller.error.value,
+                  Text(controller.error,
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: AppColors.error, fontSize: 14)),
                   const SizedBox(height: 16),
@@ -96,103 +99,102 @@ class VendorDashboardView extends GetView<VendorDashboardController> {
                 const SizedBox(height: 24),
 
                 // ── Incoming orders alert ──
-                Obx(() => controller.pendingOrders.value > 0
-                    ? GestureDetector(
-                        onTap: () => Get.toNamed(AppRoutes.vendorOrders),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryOrange.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.primaryOrange.withValues(alpha: 0.5)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.delivery_dining, color: AppColors.primaryOrange),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text('${controller.pendingOrders.value} ${'new incoming orders!'.tr}',
-                                    style: const TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.w600)),
-                              ),
-                              Text('View →'.tr, style: const TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink()),
-
-                // ── Revenue Banner (from delivered orders only) ──
-                Obx(() => Container(
+                if (controller.pendingOrders > 0)
+                  GestureDetector(
+                    onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrders),
+                    child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(14),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0D47A1), Color(0xFF1565C0)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
+                        color: AppColors.primaryOrange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.primaryOrange.withValues(alpha: 0.5)),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Net Revenue'.tr,
-                                      style: const TextStyle(color: Colors.white70, fontSize: 13),
-                                    ),
-                                    Text(
-                                      fmt.format(controller.netRevenue.value),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${'Today'.tr}: ${fmt.format(controller.todayNetRevenue.value)}',
-                                      style: const TextStyle(color: Colors.white70, fontSize: 13),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.account_balance_wallet, color: Colors.white38, size: 56),
-                            ],
+                          const Icon(Icons.delivery_dining, color: AppColors.primaryOrange),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text('${controller.pendingOrders} ${'new incoming orders!'.tr}',
+                                style: const TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.w600)),
                           ),
-                          const SizedBox(height: 16),
-                          Container(height: 1, color: Colors.white.withValues(alpha: 0.2)),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _revenueChip(
-                                  Icons.monetization_on,
-                                  'Gross Revenue'.tr,
-                                  fmt.format(controller.grossRevenue.value),
+                          Text('View →'.tr, style: const TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // ── Revenue Banner (from delivered orders only) ──
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0D47A1), Color(0xFF1565C0)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Net Revenue'.tr,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _revenueChip(
-                                  Icons.percent,
-                                  'Commission (${controller.commissionRate.value.toStringAsFixed(0)}%)',
-                                  fmt.format(controller.totalCommissionPaid.value),
+                                Text(
+                                  fmt.format(controller.netRevenue),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${'Today'.tr}: ${fmt.format(controller.todayNetRevenue)}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.account_balance_wallet, color: Colors.white38, size: 56),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(height: 1, color: Colors.white.withValues(alpha: 0.2)),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _revenueChip(
+                              Icons.monetization_on,
+                              'Gross Revenue'.tr,
+                              fmt.format(controller.grossRevenue),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _revenueChip(
+                              Icons.percent,
+                              'Commission (${controller.commissionRate.toStringAsFixed(0)}%)',
+                              fmt.format(controller.totalCommissionPaid),
+                            ),
                           ),
                         ],
                       ),
-                    )),
+                    ],
+                  ),
+                ),
 
                 // ── Today ──
                 Text('Today'.tr, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
@@ -201,14 +203,14 @@ class VendorDashboardView extends GetView<VendorDashboardController> {
                   children: [
                     Expanded(child: StatCard(
                       title: 'Orders'.tr,
-                      value: '${controller.todayOrders.value}',
-                      onTap: () => Get.toNamed(AppRoutes.vendorOrders),
+                      value: '${controller.todayOrders}',
+                      onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrders),
                     )),
                     const SizedBox(width: 12),
                     Expanded(child: StatCard(
                       title: 'Gross'.tr,
-                      value: fmt.format(controller.todayGrossRevenue.value),
-                      onTap: () => Get.toNamed(AppRoutes.vendorOrders),
+                      value: fmt.format(controller.todayGrossRevenue),
+                      onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrders),
                     )),
                   ],
                 ),
@@ -227,22 +229,22 @@ class VendorDashboardView extends GetView<VendorDashboardController> {
                   children: [
                     StatCard(
                       title: 'Total Orders'.tr,
-                      value: '${controller.totalOrders.value}',
-                      onTap: () => Get.toNamed(AppRoutes.vendorOrders),
+                      value: '${controller.totalOrders}',
+                      onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrders),
                     ),
                     StatCard(
                       title: 'Net Revenue'.tr,
-                      value: fmt.format(controller.netRevenue.value),
-                      ),
+                      value: fmt.format(controller.netRevenue),
+                    ),
                     StatCard(
                       title: 'Delivered'.tr,
-                      value: '${controller.deliveredOrders.value}',
-                      onTap: () => Get.toNamed(AppRoutes.vendorOrders),
+                      value: '${controller.deliveredOrders}',
+                      onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrders),
                     ),
                     StatCard(
                       title: 'Active Items'.tr,
-                      value: '${controller.activeMenuItems.value}',
-                      onTap: () => Get.toNamed(AppRoutes.vendorMenu),
+                      value: '${controller.activeMenuItems}',
+                      onTap: () => AppNavigator.toNamed(AppRoutes.vendorMenu),
                     ),
                   ],
                 ),
@@ -250,11 +252,11 @@ class VendorDashboardView extends GetView<VendorDashboardController> {
 
                 // ── Live order pipeline ──
                 GestureDetector(
-                  onTap: () => Get.toNamed(AppRoutes.vendorOrders),
+                  onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrders),
                   child: Text('Live Pipeline'.tr, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
                 ),
                 const SizedBox(height: 12),
-                _pipeline(),
+                _pipeline(controller),
                 const SizedBox(height: 24),
 
                 // ── Recent orders ──
@@ -264,7 +266,7 @@ class VendorDashboardView extends GetView<VendorDashboardController> {
                     children: [
                       Text('Recent Orders'.tr, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
                       TextButton(
-                        onPressed: () => Get.toNamed(AppRoutes.vendorOrders),
+                        onPressed: () => AppNavigator.toNamed(AppRoutes.vendorOrders),
                         child: Text('View All'.tr),
                       ),
                     ],
@@ -310,48 +312,45 @@ class VendorDashboardView extends GetView<VendorDashboardController> {
     );
   }
 
-  Widget _pipeline() {
+  Widget _pipeline(VendorDashboardController controller) {
     return GestureDetector(
-      onTap: () => Get.toNamed(AppRoutes.vendorOrders),
+      onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrders),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: AppColors.cardDark, borderRadius: BorderRadius.circular(14)),
-        child: Obx(() {
-          final stages = [
-            {'label': 'Incoming'.tr, 'value': controller.pendingOrders.value, 'color': AppColors.primaryOrange},
-            {'label': 'Preparing'.tr, 'value': controller.preparingOrders.value, 'color': AppColors.statusPreparing},
-            {'label': 'Ready'.tr, 'value': controller.readyOrders.value, 'color': AppColors.statusReady},
-            {'label': 'Delivered'.tr, 'value': controller.deliveredOrders.value, 'color': AppColors.success},
-          ];
-          return Row(
-            children: stages.asMap().entries.map((e) {
-              final s = e.value;
-              final isLast = e.key == stages.length - 1;
-              return Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text('${s['value']}', style: TextStyle(color: s['color'] as Color, fontSize: 20, fontWeight: FontWeight.bold)),
-                          Text(s['label'] as String, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                        ],
-                      ),
+        child: Row(
+          children: [
+            {'label': 'Incoming'.tr, 'value': controller.pendingOrders, 'color': AppColors.primaryOrange},
+            {'label': 'Preparing'.tr, 'value': controller.preparingOrders, 'color': AppColors.statusPreparing},
+            {'label': 'Ready'.tr, 'value': controller.readyOrders, 'color': AppColors.statusReady},
+            {'label': 'Delivered'.tr, 'value': controller.deliveredOrders, 'color': AppColors.success},
+          ].asMap().entries.map((e) {
+            final s = e.value;
+            final isLast = e.key == 3;
+            return Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text('${s['value']}', style: TextStyle(color: s['color'] as Color, fontSize: 20, fontWeight: FontWeight.bold)),
+                        Text(s['label'] as String, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                      ],
                     ),
-                    if (!isLast) const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.textSecondary),
-                  ],
-                ),
-              );
-            }).toList(),
-          );
-        }),
+                  ),
+                  if (!isLast) const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.textSecondary),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
   Widget _orderTile(Map<String, dynamic> o, NumberFormat fmt) {
     return GestureDetector(
-      onTap: () => Get.toNamed(AppRoutes.vendorOrderDetail, arguments: {
+      onTap: () => AppNavigator.toNamed(AppRoutes.vendorOrderDetail, arguments: {
         'order_id': o['order_id']?.toString() ?? o['id']?.toString() ?? '',
         'order_number': o['order_number'] ?? '',
       }),

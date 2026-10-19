@@ -1,46 +1,64 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/providers/api_provider.dart';
 import '../../../../app/constants/api_endpoints.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class SaVendorsController extends GetxController {
-  final isLoading = false.obs;
-  final vendors = <Map<String, dynamic>>[].obs;
-  final selectedFilter = 'all'.obs; // all, pending, approved, suspended
-  final searchQuery = ''.obs;
+final saVendorsProvider = ChangeNotifierProvider<SaVendorsController>((ref) {
+  return SaVendorsController.to;
+});
 
-  @override
-  void onInit() {
-    super.onInit();
-    // Accept initial filter from route arguments
-    final args = Get.arguments;
+class SaVendorsController extends ChangeNotifier {
+  static SaVendorsController? _instance;
+  static SaVendorsController get to => _instance ??= SaVendorsController();
+
+  bool isLoading = false;
+  List<Map<String, dynamic>> vendors = [];
+  String selectedFilter = 'all'; // all, pending, approved, suspended
+  String searchQuery = '';
+
+  SaVendorsController() {
+    final args = AppNavigator.arguments;
     if (args is Map && args['filter'] != null) {
-      selectedFilter.value = args['filter'] as String;
+      selectedFilter = args['filter'] as String;
     }
     fetchVendors();
   }
 
+  void setFilter(String filter) {
+    selectedFilter = filter;
+    notifyListeners();
+  }
+
+  void setSearchQuery(String query) {
+    searchQuery = query;
+    notifyListeners();
+  }
+
   Future<void> fetchVendors() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.get(ApiEndpoints.saVendorsGetAll);
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        vendors.value =
+        vendors =
             List<Map<String, dynamic>>.from(d['vendors'] as List? ?? []);
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
   List<Map<String, dynamic>> get filtered {
     var list = vendors.toList();
-    if (selectedFilter.value != 'all') {
-      list = list.where((v) => v['status'] == selectedFilter.value).toList();
+    if (selectedFilter != 'all') {
+      list = list.where((v) => v['status'] == selectedFilter).toList();
     }
-    if (searchQuery.value.isNotEmpty) {
-      final q = searchQuery.value.toLowerCase();
+    if (searchQuery.isNotEmpty) {
+      final q = searchQuery.toLowerCase();
       list = list.where((v) {
         return (v['vendor_name'] ?? '').toLowerCase().contains(q) ||
             (v['owner_name'] ?? '').toLowerCase().contains(q) ||
@@ -55,11 +73,11 @@ class SaVendorsController extends GetxController {
         body: {'vendor_id': vendorId});
     if (res.success) {
       _updateLocalStatus(vendorId, 'approved');
-      Get.snackbar('Approved'.tr, 'Vendor approved successfully'.tr,
+      AppNavigator.snackbar('Approved'.tr, 'Vendor approved successfully'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }
@@ -70,11 +88,11 @@ class SaVendorsController extends GetxController {
         body: {'vendor_id': vendorId});
     if (res.success) {
       _updateLocalStatus(vendorId, 'suspended');
-      Get.snackbar('Suspended'.tr, 'Vendor suspended'.tr,
+      AppNavigator.snackbar('Suspended'.tr, 'Vendor suspended'.tr,
           backgroundColor: const Color(0xFFFF9800),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }
@@ -85,11 +103,11 @@ class SaVendorsController extends GetxController {
         body: {'vendor_id': vendorId});
     if (res.success) {
       _updateLocalStatus(vendorId, 'approved');
-      Get.snackbar('Reactivated'.tr, 'Vendor reactivated'.tr,
+      AppNavigator.snackbar('Reactivated'.tr, 'Vendor reactivated'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }
@@ -100,11 +118,11 @@ class SaVendorsController extends GetxController {
         body: {'vendor_id': vendorId});
     if (res.success) {
       _updateLocalStatus(vendorId, 'rejected');
-      Get.snackbar('Rejected'.tr, 'Vendor application rejected'.tr,
+      AppNavigator.snackbar('Rejected'.tr, 'Vendor application rejected'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }
@@ -114,7 +132,7 @@ class SaVendorsController extends GetxController {
     final idx = vendors.indexWhere((v) => v['id'] == vendorId);
     if (idx != -1) {
       vendors[idx] = {...vendors[idx], 'status': status};
-      vendors.refresh();
+      notifyListeners();
     }
   }
 }

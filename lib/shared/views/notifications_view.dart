@@ -1,36 +1,46 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import '../../data/providers/api_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../app/theme/app_colors.dart';
-import '../../app/routes/app_routes.dart';
+import '../../shared/localization/app_translations.dart';
 import '../controllers/notifications_controller.dart';
 
-class NotificationsView extends StatelessWidget {
+class NotificationsView extends ConsumerStatefulWidget {
   const NotificationsView({super.key});
 
   @override
+  ConsumerState<NotificationsView> createState() => _NotificationsViewState();
+}
+
+class _NotificationsViewState extends ConsumerState<NotificationsView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationsProvider).refreshAll();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ctrl = Get.find<NotificationsController>();
-    ctrl.refreshAll();
+    final ctrl = ref.watch(notificationsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
         title: Text('Notifications'.tr),
         actions: [
-          Obx(() => ctrl.unreadCount.value > 0
-              ? TextButton.icon(
-                  onPressed: ctrl.markAllAsRead,
-                  icon: const Icon(Icons.done_all, size: 18),
-                  label: Text('Read All'.tr),
-                )
-              : const SizedBox.shrink()),
+          if (ctrl.unreadCount > 0)
+            TextButton.icon(
+              onPressed: ctrl.markAllAsRead,
+              icon: const Icon(Icons.done_all, size: 18),
+              label: Text('Read All'.tr),
+            ),
         ],
       ),
-      body: Obx(() {
-        if (ctrl.isLoading.value && ctrl.notifications.isEmpty) {
+      body: Builder(builder: (context) {
+        if (ctrl.isLoading && ctrl.notifications.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(color: AppColors.primaryOrange),
           );
@@ -46,8 +56,7 @@ class NotificationsView extends StatelessWidget {
                 Text(
                   'No notifications yet'.tr,
                   style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 16),
+                      color: Colors.white.withValues(alpha: 0.4), fontSize: 16),
                 ),
               ],
             ),
@@ -62,7 +71,7 @@ class NotificationsView extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, i) {
               if (i == ctrl.notifications.length) {
-                if (ctrl.currentPage.value < ctrl.totalPages.value) {
+                if (ctrl.currentPage < ctrl.totalPages) {
                   return Center(
                     child: TextButton(
                       onPressed: ctrl.loadMore,
@@ -86,7 +95,8 @@ class NotificationsView extends StatelessWidget {
 
   void _handleTap(Map<String, dynamic> n, NotificationsController ctrl) {
     final isRead = n['is_read']?.toString() == '1';
-    if (!isRead) ctrl.markAsRead(n['id']);
+    final id = n['id']?.toString();
+    if (!isRead && id != null) ctrl.markAsRead(id);
 
     final type = n['type'] ?? '';
     Map<String, dynamic>? data;
@@ -102,30 +112,7 @@ class NotificationsView extends StatelessWidget {
     if (data != null &&
         (type == 'new_order' || type == 'order_status') &&
         data['order_id'] != null) {
-      final role = _getCurrentRole();
-      String route;
-      switch (role) {
-        case 'super_admin':
-          route = AppRoutes.saOrderDetail;
-          break;
-        case 'vendor':
-          route = AppRoutes.vendorOrderDetail;
-          break;
-        default:
-          route = AppRoutes.adminOrderDetail;
-      }
-      Get.toNamed(route, arguments: {
-        'order_id': data['order_id'],
-        'order_number': data['order_number'] ?? '',
-      });
-    }
-  }
-
-  String _getCurrentRole() {
-    try {
-      return ApiProvider.storedRole ?? 'admin';
-    } catch (_) {
-      return 'admin';
+      ctrl.navigateToOrderFromData(data);
     }
   }
 }
@@ -200,22 +187,23 @@ class _NotificationCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _formatTime(createdAt),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.35),
-                      fontSize: 11,
+                  if (createdAt.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _formatDate(createdAt),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        fontSize: 10,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
             if (!isRead)
               Container(
-                width: 10,
-                height: 10,
-                margin: const EdgeInsets.only(top: 6),
+                width: 8,
+                height: 8,
                 decoration: const BoxDecoration(
                   color: AppColors.primaryOrange,
                   shape: BoxShape.circle,
@@ -233,10 +221,12 @@ class _NotificationCard extends StatelessWidget {
         return Icons.shopping_bag_outlined;
       case 'order_status':
         return Icons.local_shipping_outlined;
-      case 'promo':
+      case 'vendor_approved':
+        return Icons.verified_outlined;
+      case 'vendor_suspended':
+        return Icons.block_outlined;
+      case 'broadcast':
         return Icons.campaign_outlined;
-      case 'system':
-        return Icons.info_outline;
       default:
         return Icons.notifications_outlined;
     }
@@ -245,34 +235,34 @@ class _NotificationCard extends StatelessWidget {
   Color _iconColor(String type) {
     switch (type) {
       case 'new_order':
-        return AppColors.primaryOrange;
-      case 'order_status':
-        return AppColors.info;
-      case 'promo':
         return AppColors.goldenYellow;
-      case 'system':
-        return AppColors.statusPreparing;
+      case 'order_status':
+        return AppColors.primaryOrange;
+      case 'vendor_approved':
+        return AppColors.success;
+      case 'vendor_suspended':
+        return AppColors.error;
+      case 'broadcast':
+        return Colors.purpleAccent;
       default:
-        return AppColors.textSecondary;
+        return Colors.blueAccent;
     }
   }
 
-  String _formatTime(String ts) {
-    if (ts.isEmpty) return '';
+  String _formatDate(String dateStr) {
     try {
-      // DB stores timestamps in UTC — append 'Z' so Dart parses as UTC,
-      // then convert to local for correct time-ago calculation.
-      final utcStr = ts.endsWith('Z') ? ts : '${ts.replaceAll(' ', 'T')}Z';
-      final dt = DateTime.parse(utcStr).toLocal();
+      final dt = DateTime.parse(dateStr).toLocal();
       final now = DateTime.now();
       final diff = now.difference(dt);
-      if (diff.inMinutes < 1) return 'Just now';
-      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-      if (diff.inHours < 24) return '${diff.inHours}h ago';
-      if (diff.inDays < 7) return '${diff.inDays}d ago';
-      return DateFormat('MMM d, yyyy').format(dt);
+
+      if (diff.inMinutes < 1) return 'Just now'.tr;
+      if (diff.inHours < 1) return '${diff.inMinutes}m ago'.tr;
+      if (diff.inDays < 1) return '${diff.inHours}h ago'.tr;
+      if (diff.inDays < 7) return '${diff.inDays}d ago'.tr;
+
+      return DateFormat('MMM d, h:mm a').format(dt);
     } catch (_) {
-      return ts;
+      return dateStr;
     }
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../../app/constants/app_constants.dart';
 import '../../shared/services/secure_storage_service.dart';
 
@@ -88,6 +89,52 @@ class ApiProvider {
       });
       if (fields != null) request.fields.addAll(fields);
       request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      return _parseResponse(response);
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: _friendlyError(e),
+      );
+    }
+  }
+
+  /// Multipart POST using raw bytes — web-compatible alternative to [uploadMultipart].
+  /// Use this when [image_picker] returns an XFile (works on both web and mobile).
+  static Future<ApiResponse> uploadMultipartBytes(
+    String url, {
+    Map<String, String>? fields,
+    required String fileField,
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+      request.headers.addAll({
+        if (token != null) 'Authorization': 'Bearer $token',
+      });
+      if (fields != null) request.fields.addAll(fields);
+
+      // Determine MIME type from filename extension
+      MediaType mediaType;
+      final ext = filename.split('.').last.toLowerCase();
+      if (ext == 'png') {
+        mediaType = MediaType('image', 'png');
+      } else if (ext == 'webp') {
+        mediaType = MediaType('image', 'webp');
+      } else if (ext == 'gif') {
+        mediaType = MediaType('image', 'gif');
+      } else {
+        mediaType = MediaType('image', 'jpeg'); // default fallback (jpg, jpeg)
+      }
+
+      request.files.add(http.MultipartFile.fromBytes(
+        fileField,
+        bytes,
+        filename: filename,
+        contentType: mediaType,
+      ));
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
       return _parseResponse(response);

@@ -1,18 +1,24 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_storage/get_storage.dart';
 
-/// Encrypted storage for sensitive auth data.
-/// Uses an in-memory cache so sync reads work identically to the old
-/// GetStorage-based flow — the only difference is that data at rest is
-/// encrypted via Android Keystore / iOS Keychain.
+/// Hybrid storage for sensitive auth data.
+/// Uses memory cache for sync reads, FlutterSecureStorage for encrypted OS-level storage,
+/// and GetStorage as a reliable persistent fallback across app restarts.
 class SecureStorageService {
   SecureStorageService._();
   static final SecureStorageService instance = SecureStorageService._();
 
-  static const _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-  );
+  // On web: FlutterSecureStorage uses localStorage (no platform options needed).
+  // On Android: use encrypted shared preferences.
+  // On iOS: use keychain with first_unlock accessibility.
+  static final _storage = kIsWeb
+      ? const FlutterSecureStorage()
+      : const FlutterSecureStorage(
+          aOptions: AndroidOptions(encryptedSharedPreferences: true),
+          iOptions:
+              IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+        );
 
   final Map<String, String?> _cache = {};
 
@@ -29,42 +35,43 @@ class SecureStorageService {
 
   /// Must be called once during app startup, before any reads.
   Future<void> init() async {
-    await _migrateFromGetStorage();
-    for (final key in _sensitiveKeys) {
-      _cache[key] = await _storage.read(key: key);
-    }
-  }
-
-  /// One-time migration: move sensitive data from plaintext GetStorage
-  /// into encrypted storage, then delete the insecure copies.
-  Future<void> _migrateFromGetStorage() async {
-    final alreadyMigrated =
-        await _storage.read(key: '_migrated_to_secure') == 'true';
-    if (alreadyMigrated) return;
-
     final box = GetStorage();
     for (final key in _sensitiveKeys) {
-      final value = box.read<String>(key);
-      if (value != null && value.isNotEmpty) {
-        await _storage.write(key: key, value: value);
-        await box.remove(key);
+      String? val;
+      try {
+        val = await _storage.read(key: key);
+      } catch (e) {
+        if (kDebugMode) debugPrint('[SecureStorage] Read error for $key: $e');
       }
+      val ??= box.read<String>(key);
+      _cache[key] = val;
     }
-    await _storage.write(key: '_migrated_to_secure', value: 'true');
   }
 
   /// Sync read from memory cache.
   String? read(String key) => _cache[key];
 
-  /// Update cache (sync) then persist to encrypted storage (async).
+  /// Update memory cache, encrypted storage, and persistent GetStorage fallback.
   Future<void> write(String key, String value) async {
     _cache[key] = value;
-    await _storage.write(key: key, value: value);
+    final box = GetStorage();
+    await box.write(key, value);
+    try {
+      await _storage.write(key: key, value: value);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[SecureStorage] Write error for $key: $e');
+    }
   }
 
-  /// Remove from cache (sync) then delete from encrypted storage (async).
+  /// Remove from memory cache, encrypted storage, and persistent GetStorage fallback.
   Future<void> remove(String key) async {
     _cache.remove(key);
-    await _storage.delete(key: key);
+    final box = GetStorage();
+    await box.remove(key);
+    try {
+      await _storage.delete(key: key);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[SecureStorage] Remove error for $key: $e');
+    }
   }
 }

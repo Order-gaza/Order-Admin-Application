@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/providers/api_provider.dart';
 import '../../../../app/constants/api_endpoints.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class SaOrdersController extends GetxController {
-  final isLoading = false.obs;
-  final orders = <Map<String, dynamic>>[].obs;
-  final selectedStatus = 'all'.obs;
-  final searchQuery = ''.obs;
+final saOrdersProvider = ChangeNotifierProvider<SaOrdersController>((ref) {
+  return SaOrdersController.to;
+});
+
+class SaOrdersController extends ChangeNotifier {
+  static SaOrdersController? _instance;
+  static SaOrdersController get to => _instance ??= SaOrdersController();
+
+  bool isLoading = false;
+  List<Map<String, dynamic>> orders = [];
+  String selectedStatus = 'all';
+  String searchQuery = '';
 
   final statusFilters = [
     'all', 'pending', 'admin_confirmed', 'sent_to_vendor',
@@ -15,43 +24,52 @@ class SaOrdersController extends GetxController {
     'out_for_delivery', 'delivered', 'cancelled'
   ];
 
-  @override
-  void onInit() {
-    super.onInit();
-    // Accept initial filter from route arguments
-    final args = Get.arguments;
+  SaOrdersController() {
+    final args = AppNavigator.arguments;
     if (args is Map && args['filter'] != null) {
-      selectedStatus.value = args['filter'] as String;
+      selectedStatus = args['filter'] as String;
     }
-    ever(selectedStatus, (_) => fetchOrders());
     fetchOrders();
   }
 
+  void setStatus(String status) {
+    selectedStatus = status;
+    notifyListeners();
+    fetchOrders();
+  }
+
+  void setSearchQuery(String query) {
+    searchQuery = query;
+    notifyListeners();
+  }
+
   Future<void> fetchOrders() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
       String url;
       Map<String, String>? params;
-      if (selectedStatus.value == 'all') {
+      if (selectedStatus == 'all') {
         url = ApiEndpoints.saOrdersGetAll;
       } else {
         url = ApiEndpoints.saOrdersGetByStatus;
-        params = {'status': selectedStatus.value};
+        params = {'status': selectedStatus};
       }
       final res = await ApiProvider.get(url, queryParams: params);
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        orders.value =
+        orders =
             List<Map<String, dynamic>>.from(d['orders'] as List? ?? []);
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
   List<Map<String, dynamic>> get filtered {
-    if (searchQuery.value.isEmpty) return orders;
-    final q = searchQuery.value.toLowerCase();
+    if (searchQuery.isEmpty) return orders;
+    final q = searchQuery.toLowerCase();
     return orders.where((o) {
       return (o['order_number'] ?? '').toLowerCase().contains(q) ||
           (o['customer_name'] ?? '').toLowerCase().contains(q);
@@ -63,11 +81,11 @@ class SaOrdersController extends GetxController {
         body: {'order_id': orderId, 'reason': reason});
     if (res.success) {
       fetchOrders();
-      Get.snackbar('Cancelled'.tr, 'Order cancelled'.tr,
+      AppNavigator.snackbar('Cancelled'.tr, 'Order cancelled'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }

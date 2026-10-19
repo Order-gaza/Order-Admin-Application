@@ -1,69 +1,102 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/constants/api_endpoints.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../data/providers/api_provider.dart';
+import '../../../shared/localization/app_translations.dart';
+import '../../../shared/utils/app_navigator.dart';
 
 /// Step 3: Enter new password + confirm → reset
-class ResetPasswordView extends StatelessWidget {
+class ResetPasswordView extends StatefulWidget {
   const ResetPasswordView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final args = Get.arguments as Map<String, dynamic>? ?? {};
-    final email = args['email'] as String? ?? '';
-    final otp = args['otp'] as String? ?? '';
+  State<ResetPasswordView> createState() => _ResetPasswordViewState();
+}
 
-    final passCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
-    final isLoading = false.obs;
-    final error = ''.obs;
-    final obscure1 = true.obs;
-    final obscure2 = true.obs;
+class _ResetPasswordViewState extends State<ResetPasswordView> {
+  late final TextEditingController _passCtrl;
+  late final TextEditingController _confirmCtrl;
+  bool _isLoading = false;
+  String _error = '';
+  bool _obscure1 = true;
+  bool _obscure2 = true;
 
-    Future<void> resetPassword() async {
-      final pass = passCtrl.text;
-      final confirm = confirmCtrl.text;
+  String get _email {
+    final args = AppNavigator.arguments as Map<String, dynamic>? ?? {};
+    return args['email'] as String? ?? '';
+  }
 
-      if (pass.isEmpty || confirm.isEmpty) {
-        error.value = 'Both fields are required'.tr;
-        return;
-      }
-      if (pass.length < 6) {
-        error.value = 'Password must be at least 6 characters'.tr;
-        return;
-      }
-      if (pass != confirm) {
-        error.value = 'Passwords do not match'.tr;
-        return;
-      }
+  String get _otp {
+    final args = AppNavigator.arguments as Map<String, dynamic>? ?? {};
+    return args['otp'] as String? ?? '';
+  }
 
-      isLoading.value = true;
-      error.value = '';
+  @override
+  void initState() {
+    super.initState();
+    _passCtrl = TextEditingController();
+    _confirmCtrl = TextEditingController();
+  }
 
-      final res = await ApiProvider.post(
-        ApiEndpoints.resetPassword,
-        body: {
-          'email': email,
-          'reset_token': otp,
-          'new_password': pass,
-          'confirm_password': confirm,
-        },
-      );
+  @override
+  void dispose() {
+    _passCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
 
-      isLoading.value = false;
+  Future<void> _resetPassword() async {
+    final pass = _passCtrl.text;
+    final confirm = _confirmCtrl.text;
 
-      if (res.success) {
-        Get.snackbar('Success'.tr, 'Password reset successfully'.tr,
-            backgroundColor: const Color(0xFF4CAF50),
-            colorText: const Color(0xFFFFFFFF));
-        Get.offAllNamed(AppRoutes.login);
-      } else {
-        error.value = res.message?.tr ?? 'Reset failed'.tr;
-      }
+    if (pass.isEmpty || confirm.isEmpty) {
+      setState(() => _error = 'Both fields are required'.tr);
+      return;
+    }
+    if (pass.length < 6) {
+      setState(() => _error = 'Password must be at least 6 characters'.tr);
+      return;
+    }
+    if (pass != confirm) {
+      setState(() => _error = 'Passwords do not match'.tr);
+      return;
     }
 
+    setState(() {
+      _isLoading = true;
+      _error = '';
+    });
+
+    final res = await ApiProvider.post(
+      ApiEndpoints.resetPassword,
+      body: {
+        'email': _email,
+        'reset_token': _otp,
+        'new_password': pass,
+        'confirm_password': confirm,
+      },
+    );
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    if (res.success) {
+      AppNavigator.snackbar(
+        'Success'.tr,
+        'Password reset successfully'.tr,
+        backgroundColor: const Color(0xFF4CAF50),
+        colorText: const Color(0xFFFFFFFF),
+      );
+      AppNavigator.offAllNamed(AppRoutes.login);
+    } else {
+      setState(() => _error = res.message?.tr ?? 'Reset failed'.tr);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -111,51 +144,50 @@ class ResetPasswordView extends StatelessWidget {
             const SizedBox(height: 32),
 
             // ── New password ──
-            Obx(() => TextField(
-                  controller: passCtrl,
-                  obscureText: obscure1.value,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'New Password'.tr,
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        obscure1.value
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: AppColors.textSecondary,
-                      ),
-                      onPressed: () => obscure1.value = !obscure1.value,
-                    ),
+            TextField(
+              controller: _passCtrl,
+              obscureText: _obscure1,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'New Password'.tr,
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscure1
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: AppColors.textSecondary,
                   ),
-                )),
+                  onPressed: () => setState(() => _obscure1 = !_obscure1),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
 
             // ── Confirm password ──
-            Obx(() => TextField(
-                  controller: confirmCtrl,
-                  obscureText: obscure2.value,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Confirm New Password'.tr,
-                    prefixIcon: const Icon(Icons.lock_reset),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        obscure2.value
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: AppColors.textSecondary,
-                      ),
-                      onPressed: () => obscure2.value = !obscure2.value,
-                    ),
+            TextField(
+              controller: _confirmCtrl,
+              obscureText: _obscure2,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Confirm New Password'.tr,
+                prefixIcon: const Icon(Icons.lock_reset),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscure2
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: AppColors.textSecondary,
                   ),
-                )),
+                  onPressed: () => setState(() => _obscure2 = !_obscure2),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
 
             // ── Error ──
-            Obx(() {
-              if (error.value.isEmpty) return const SizedBox.shrink();
-              return Container(
+            if (_error.isNotEmpty)
+              Container(
                 width: double.infinity,
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(12),
@@ -165,29 +197,28 @@ class ResetPasswordView extends StatelessWidget {
                   border: Border.all(
                       color: AppColors.error.withValues(alpha: 0.3)),
                 ),
-                child: Text(error.value,
+                child: Text(_error,
                     style:
                         const TextStyle(color: AppColors.error, fontSize: 13)),
-              );
-            }),
+              ),
 
             // ── Reset button ──
-            Obx(() => SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: isLoading.value ? null : resetPassword,
-                    child: isLoading.value
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2.5))
-                        : Text('Reset Password'.tr,
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                )),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _resetPassword,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.5))
+                    : Text('Reset Password'.tr,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+            ),
           ],
         ),
       ),

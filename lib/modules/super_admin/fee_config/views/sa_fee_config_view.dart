@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/app_constants.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../controllers/sa_fee_config_controller.dart';
 
-class SaFeeConfigView extends GetView<SaFeeConfigController> {
+class SaFeeConfigView extends ConsumerWidget {
   const SaFeeConfigView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(SaFeeConfigController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(saFeeConfigProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
         title: Text('Service Fee Config'.tr),
         actions: [
-          Obx(() => controller.isSaving.value
+          controller.isSaving
               ? const Padding(
                   padding: EdgeInsets.all(14),
                   child: SizedBox(
@@ -31,12 +33,12 @@ class SaFeeConfigView extends GetView<SaFeeConfigController> {
                   icon: const Icon(Icons.save),
                   onPressed: controller.saveConfig,
                   tooltip: 'Save Config'.tr,
-                )),
+                ),
         ],
       ),
       drawer: const AppDrawer(currentRoute: AppRoutes.saFeeConfig),
-      body: Obx(() {
-        if (controller.isLoading.value) {
+      body: Builder(builder: (_) {
+        if (controller.isLoading) {
           return const Center(
               child: CircularProgressIndicator(color: AppColors.primaryOrange));
         }
@@ -74,37 +76,37 @@ class SaFeeConfigView extends GetView<SaFeeConfigController> {
 
               // ── Model selector ──
               Text('Fee Model'.tr,
-                  style: TextStyle(
+                  style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
-              Obx(() => Row(
-                    children: [
-                      _modelCard(
-                        AppConstants.feeFlat,
-                        'Flat Fee'.tr,
-                        'Fixed amount per order'.tr,
-                        Icons.attach_money,
-                        controller.activeModel.value == AppConstants.feeFlat,
-                      ),
-                      const SizedBox(width: 12),
-                      _modelCard(
-                        AppConstants.feePercentage,
-                        'Percentage'.tr,
-                        'Percent of order total'.tr,
-                        Icons.percent,
-                        controller.activeModel.value ==
-                            AppConstants.feePercentage,
-                      ),
-                    ],
-                  )),
+              Row(
+                children: [
+                  _modelCard(
+                    controller,
+                    AppConstants.feeFlat,
+                    'Flat Fee'.tr,
+                    'Fixed amount per order'.tr,
+                    Icons.attach_money,
+                    controller.activeModel == AppConstants.feeFlat,
+                  ),
+                  const SizedBox(width: 12),
+                  _modelCard(
+                    controller,
+                    AppConstants.feePercentage,
+                    'Percentage'.tr,
+                    'Percent of order total'.tr,
+                    Icons.percent,
+                    controller.activeModel == AppConstants.feePercentage,
+                  ),
+                ],
+              ),
               const SizedBox(height: 24),
 
               // ── Config fields ──
-              Obx(() {
-                final isFlat =
-                    controller.activeModel.value == AppConstants.feeFlat;
+              Builder(builder: (_) {
+                final isFlat = controller.activeModel == AppConstants.feeFlat;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -133,24 +135,24 @@ class SaFeeConfigView extends GetView<SaFeeConfigController> {
               // ── Save button ──
               SizedBox(
                 width: double.infinity,
-                child: Obx(() => ElevatedButton.icon(
-                      onPressed: controller.isSaving.value
-                          ? null
-                          : controller.saveConfig,
-                      icon: controller.isSaving.value
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white))
-                          : const Icon(Icons.save),
-                      label: Text(controller.isSaving.value
-                          ? 'Saving...'.tr
-                          : 'Save Configuration'.tr),
-                      style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16)),
-                    )),
+                child: ElevatedButton.icon(
+                  onPressed: controller.isSaving
+                      ? null
+                      : controller.saveConfig,
+                  icon: controller.isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white))
+                      : const Icon(Icons.save),
+                  label: Text(controller.isSaving
+                      ? 'Saving...'.tr
+                      : 'Save Configuration'.tr),
+                  style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16)),
+                ),
               ),
             ],
           ),
@@ -159,11 +161,11 @@ class SaFeeConfigView extends GetView<SaFeeConfigController> {
     );
   }
 
-  Widget _modelCard(String value, String title, String subtitle,
+  Widget _modelCard(SaFeeConfigController controller, String value, String title, String subtitle,
       IconData icon, bool selected) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => controller.activeModel.value = value,
+        onTap: () => controller.setActiveModel(value),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(16),

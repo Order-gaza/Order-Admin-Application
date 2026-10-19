@@ -1,4 +1,4 @@
-import 'package:get/get.dart';
+import '../../shared/localization/app_translations.dart';
 
 /// Application-wide constants matching the PHP backend
 class AppConstants {

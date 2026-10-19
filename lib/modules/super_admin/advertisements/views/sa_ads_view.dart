@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../controllers/sa_ads_controller.dart';
 
-class SaAdsView extends GetView<SaAdsController> {
+class SaAdsView extends ConsumerWidget {
   const SaAdsView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(SaAdsController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(saAdsProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -24,14 +27,14 @@ class SaAdsView extends GetView<SaAdsController> {
       drawer: const AppDrawer(currentRoute: AppRoutes.saAds),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Get.toNamed(AppRoutes.saAddAd);
+          final result = await AppNavigator.toNamed(AppRoutes.saAddAd);
           if (result == true) controller.fetchAds();
         },
         icon: const Icon(Icons.add),
         label: Text('New Ad'.tr),
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
+      body: Builder(builder: (context) {
+        if (controller.isLoading) {
           return const Center(
               child:
                   CircularProgressIndicator(color: AppColors.primaryOrange));
@@ -50,7 +53,8 @@ class SaAdsView extends GetView<SaAdsController> {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () async {
-                    final result = await Get.toNamed(AppRoutes.saAddAd);
+                    final result =
+                        await AppNavigator.toNamed(AppRoutes.saAddAd);
                     if (result == true) controller.fetchAds();
                   },
                   icon: const Icon(Icons.add),
@@ -67,14 +71,15 @@ class SaAdsView extends GetView<SaAdsController> {
             padding: const EdgeInsets.all(16),
             itemCount: controller.ads.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => _adCard(controller.ads[i]),
+            itemBuilder: (_, i) =>
+                _adCard(controller, controller.ads[i]),
           ),
         );
       }),
     );
   }
 
-  Widget _adCard(Map<String, dynamic> ad) {
+  Widget _adCard(SaAdsController controller, Map<String, dynamic> ad) {
     final isActive = (ad['is_active'] ?? 1) == 1;
     final id = ad['id']?.toString() ?? '';
     return Container(
@@ -227,7 +232,7 @@ class SaAdsView extends GetView<SaAdsController> {
                     const Spacer(),
                     TextButton.icon(
                       onPressed: () async {
-                        final result = await Get.toNamed(
+                        final result = await AppNavigator.toNamed(
                           AppRoutes.saAddAd,
                           arguments: ad,
                         );
@@ -237,7 +242,7 @@ class SaAdsView extends GetView<SaAdsController> {
                           size: 16, color: AppColors.info),
                       label: Text('Edit'.tr,
                           style:
-                              TextStyle(color: AppColors.info, fontSize: 12)),
+                              const TextStyle(color: AppColors.info, fontSize: 12)),
                       style: TextButton.styleFrom(
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -246,12 +251,12 @@ class SaAdsView extends GetView<SaAdsController> {
                     ),
                     const SizedBox(width: 4),
                     TextButton.icon(
-                      onPressed: () => _confirmDelete(id),
+                      onPressed: () => _confirmDelete(controller, id),
                       icon: const Icon(Icons.delete_outline,
                           size: 16, color: AppColors.error),
                       label: Text('Remove'.tr,
                           style:
-                              TextStyle(color: AppColors.error, fontSize: 12)),
+                              const TextStyle(color: AppColors.error, fontSize: 12)),
                       style: TextButton.styleFrom(
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -302,20 +307,20 @@ class SaAdsView extends GetView<SaAdsController> {
     return '${fmt(start)}  →  ${fmt(end)}';
   }
 
-  void _confirmDelete(String id) {
-    Get.dialog(AlertDialog(
+  void _confirmDelete(SaAdsController controller, String id) {
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title: Text('Delete Ad'.tr, style: const TextStyle(color: Colors.white)),
       content: Text('Remove this advertisement?'.tr,
-          style: TextStyle(color: AppColors.textSecondary)),
+          style: const TextStyle(color: AppColors.textSecondary)),
       actions: [
         TextButton(
-            onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+            onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style:
               ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
+            AppNavigator.back();
             controller.deleteAd(id);
           },
           child: Text('Delete'.tr),

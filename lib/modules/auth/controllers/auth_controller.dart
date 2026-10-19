@@ -1,36 +1,49 @@
-import 'package:get/get.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/providers/api_provider.dart';
 import '../../../app/constants/api_endpoints.dart';
 import '../../../app/constants/app_constants.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../shared/localization/app_translations.dart';
+import '../../../shared/utils/app_navigator.dart';
 import '../../../shared/controllers/language_controller.dart';
 import '../../../shared/services/fcm_service.dart';
 
-class AuthController extends GetxController {
+class AuthController extends ChangeNotifier {
+  static AuthController? _instance;
+  static AuthController get to => _instance ??= AuthController();
+
   // ── Observable state ──
-  final isLoading = false.obs;
-  final obscurePassword = true.obs;
-  final errorMessage = ''.obs;
+  bool isLoading = false;
+  bool obscurePassword = true;
+  String errorMessage = '';
 
   // ── Text field values ──
   String email = '';
   String password = '';
 
+  AuthController() {
+    _instance = this;
+  }
+
   /// Toggle password visibility
   void togglePasswordVisibility() {
-    obscurePassword.value = !obscurePassword.value;
+    obscurePassword = !obscurePassword;
+    notifyListeners();
   }
 
   /// Perform login
   Future<void> login() async {
     // Validate
     if (email.trim().isEmpty || password.trim().isEmpty) {
-      errorMessage.value = 'Email and password are required'.tr;
+      errorMessage = 'Email and password are required'.tr;
+      notifyListeners();
       return;
     }
 
-    isLoading.value = true;
-    errorMessage.value = '';
+    isLoading = true;
+    errorMessage = '';
+    notifyListeners();
 
     try {
       final response = await ApiProvider.post(
@@ -58,24 +71,21 @@ class AuthController extends GetxController {
         );
 
         // Reload the user-specific language
-        if (Get.isRegistered<LanguageController>()) {
-          Get.find<LanguageController>().reloadLanguage();
-        }
+        LanguageController.to.reloadLanguage();
 
         // Register FCM token after successful login
-        if (Get.isRegistered<FcmService>()) {
-          Get.find<FcmService>().refreshToken();
-        }
+        FcmService.to.refreshToken();
 
         // Navigate to correct dashboard
         _navigateByRole(role);
       } else {
-        errorMessage.value = response.message?.tr ?? 'Login failed'.tr;
+        errorMessage = response.message?.tr ?? 'Login failed'.tr;
       }
     } catch (e) {
-      errorMessage.value = 'Connection error. Please try again.'.tr;
+      errorMessage = 'Connection error. Please try again.'.tr;
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -87,26 +97,24 @@ class AuthController extends GetxController {
     } catch (_) {}
 
     ApiProvider.clearAuth();
-    if (Get.isRegistered<LanguageController>()) {
-      Get.find<LanguageController>().reloadLanguage();
-    }
-    Get.offAllNamed(AppRoutes.login);
+    LanguageController.to.reloadLanguage();
+    AppNavigator.offAllNamed(AppRoutes.login);
   }
 
   /// Navigate to the correct dashboard based on role
   static void _navigateByRole(String role) {
     switch (role) {
       case AppConstants.roleSuperAdmin:
-        Get.offAllNamed(AppRoutes.saDashboard);
+        AppNavigator.offAllNamed(AppRoutes.saDashboard);
         break;
       case AppConstants.roleAdmin:
-        Get.offAllNamed(AppRoutes.adminDashboard);
+        AppNavigator.offAllNamed(AppRoutes.adminDashboard);
         break;
       case AppConstants.roleVendor:
-        Get.offAllNamed(AppRoutes.vendorDashboard);
+        AppNavigator.offAllNamed(AppRoutes.vendorDashboard);
         break;
       default:
-        Get.offAllNamed(AppRoutes.login);
+        AppNavigator.offAllNamed(AppRoutes.login);
     }
   }
 
@@ -114,27 +122,25 @@ class AuthController extends GetxController {
   static Future<void> tryAutoLogin() async {
     if (ApiProvider.isLoggedIn) {
       final role = ApiProvider.storedRole;
+      if (role != null && role.isNotEmpty) {
+        LanguageController.to.reloadLanguage();
+        FcmService.to.refreshToken();
+        _navigateByRole(role);
 
-      // Validate session with backend
-      final response = await ApiProvider.post(ApiEndpoints.validateSession);
-
-      if (response.success) {
-        if (role != null) {
-          if (Get.isRegistered<LanguageController>()) {
-            Get.find<LanguageController>().reloadLanguage();
+        // Background session validation
+        ApiProvider.post(ApiEndpoints.validateSession).then((response) {
+          if (!response.success &&
+              response.rawBody?['status'] == 'unauthenticated') {
+            ApiProvider.clearAuth();
+            AppNavigator.offAllNamed(AppRoutes.login);
           }
-          // Re-register FCM token on auto-login
-          if (Get.isRegistered<FcmService>()) {
-            Get.find<FcmService>().refreshToken();
-          }
-          _navigateByRole(role);
-          return;
-        }
-      } else {
-        // Token expired or invalid
-        ApiProvider.clearAuth();
+        }).catchError((_) {});
+        return;
       }
     }
-    Get.offAllNamed(AppRoutes.login);
+    AppNavigator.offAllNamed(AppRoutes.login);
   }
 }
+
+final authProvider =
+    ChangeNotifierProvider<AuthController>((ref) => AuthController.to);

@@ -1,39 +1,60 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/providers/api_provider.dart';
 import '../../../../app/constants/api_endpoints.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class SaCustomersController extends GetxController {
-  final isLoading = false.obs;
-  final customers = <Map<String, dynamic>>[].obs;
-  final searchQuery = ''.obs;
+final saCustomersProvider =
+    ChangeNotifierProvider<SaCustomersController>((ref) {
+  return SaCustomersController.to;
+});
 
-  @override
-  void onInit() {
-    super.onInit();
+class SaCustomersController extends ChangeNotifier {
+  static SaCustomersController? _instance;
+  static SaCustomersController get to =>
+      _instance ??= SaCustomersController();
+
+  bool isLoading = false;
+  List<Map<String, dynamic>> customers = [];
+  String searchQuery = '';
+
+  SaCustomersController() {
     fetchCustomers();
   }
 
+  void setSearchQuery(String query) {
+    searchQuery = query;
+    notifyListeners();
+  }
+
   Future<void> fetchCustomers() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.get(ApiEndpoints.saCustomersGetAll);
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        customers.value =
+        customers =
             List<Map<String, dynamic>>.from(d['customers'] as List? ?? []);
       } else {
-        Get.snackbar('Debug Error'.tr, res.message?.tr ?? 'Unknown API error'.tr, 
-          backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 5));
+        AppNavigator.snackbar(
+          'Debug Error'.tr,
+          res.message?.tr ?? 'Unknown API error'.tr,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 5),
+        );
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
   List<Map<String, dynamic>> get filtered {
-    if (searchQuery.value.isEmpty) return customers;
-    final q = searchQuery.value.toLowerCase();
+    if (searchQuery.isEmpty) return customers;
+    final q = searchQuery.toLowerCase();
     return customers.where((c) {
       return (c['name'] ?? '').toLowerCase().contains(q) ||
           (c['email'] ?? '').toLowerCase().contains(q) ||
@@ -48,14 +69,14 @@ class SaCustomersController extends GetxController {
     );
     if (res.success) {
       await fetchCustomers();
-      Get.snackbar(
+      AppNavigator.snackbar(
         'Success',
         res.message?.tr ?? 'Status updated',
         backgroundColor: const Color(0xFF4CAF50),
         colorText: const Color(0xFFFFFFFF),
       );
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }
@@ -68,11 +89,12 @@ class SaCustomersController extends GetxController {
     );
     if (res.success) {
       customers.removeWhere((c) => c['id'] == customerId);
-      Get.snackbar('Done'.tr, res.message?.tr ?? 'Customer removed'.tr,
+      notifyListeners();
+      AppNavigator.snackbar('Done'.tr, res.message?.tr ?? 'Customer removed'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }

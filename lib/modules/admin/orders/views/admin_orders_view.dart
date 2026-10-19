@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/app_constants.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../shared/widgets/order_status_badge.dart';
 import '../controllers/admin_orders_controller.dart';
 
-class AdminOrdersView extends GetView<AdminOrdersController> {
+class AdminOrdersView extends ConsumerWidget {
   const AdminOrdersView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(AdminOrdersController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(adminOrdersProvider);
     final fmt = NumberFormat.currency(symbol: '₪', decimalDigits: 2);
 
     return Scaffold(
@@ -33,7 +35,7 @@ class AdminOrdersView extends GetView<AdminOrdersController> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
-              onChanged: (v) => controller.searchQuery.value = v,
+              onChanged: (v) => controller.setSearchQuery(v),
               decoration: InputDecoration(
                 hintText: 'Search orders...'.tr,
                 prefixIcon: const Icon(Icons.search),
@@ -43,50 +45,50 @@ class AdminOrdersView extends GetView<AdminOrdersController> {
           // ── Filter chips ──
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Obx(() => SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: controller.statusFilters.map((f) {
-                      final sel = controller.selectedStatus.value == f;
-                      return GestureDetector(
-                        onTap: () => controller.selectedStatus.value = f,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: controller.statusFilters.map((f) {
+                  final sel = controller.selectedStatus == f;
+                  return GestureDetector(
+                    onTap: () => controller.selectStatus(f),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? AppColors.primaryOrange
+                            : AppColors.darkSurface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
                             color: sel
                                 ? AppColors.primaryOrange
-                                : AppColors.darkSurface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: sel
-                                    ? AppColors.primaryOrange
-                                    : AppColors.divider),
-                          ),
-                          child: Text(
-                            AppConstants.orderStatusLabel(f),
-                            style: TextStyle(
-                              color: sel
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                              fontSize: 12,
-                              fontWeight: sel
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
-                          ),
+                                : AppColors.divider),
+                      ),
+                      child: Text(
+                        AppConstants.orderStatusLabel(f),
+                        style: TextStyle(
+                          color: sel
+                              ? Colors.white
+                              : AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: sel
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
-                      );
-                    }).toList(),
-                  ),
-                )),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
           // ── List ──
           Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
+            child: Builder(builder: (context) {
+              if (controller.isLoading) {
                 return const Center(
                     child: CircularProgressIndicator(
                         color: AppColors.primaryOrange));
@@ -115,7 +117,7 @@ class AdminOrdersView extends GetView<AdminOrdersController> {
                   padding: const EdgeInsets.all(16),
                   itemCount: list.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _orderCard(list[i], fmt),
+                  itemBuilder: (_, i) => _orderCard(list[i], fmt, controller),
                 ),
               );
             }),
@@ -125,101 +127,101 @@ class AdminOrdersView extends GetView<AdminOrdersController> {
     );
   }
 
-  Widget _orderCard(Map<String, dynamic> order, NumberFormat fmt) {
+  Widget _orderCard(Map<String, dynamic> order, NumberFormat fmt, AdminOrdersController controller) {
     final status = order['status'] ?? '';
     return GestureDetector(
-      onTap: () => Get.toNamed(AppRoutes.adminOrderDetail, arguments: {
+      onTap: () => AppNavigator.toNamed(AppRoutes.adminOrderDetail, arguments: {
         'order_id': order['id']?.toString() ?? '',
         'order_number': order['order_number'] ?? '',
       }),
       child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.cardDark,
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: AppColors.divider.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(order['order_number'] ?? '',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15)),
-                    Text(order['customer_name'] ?? '',
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 13)),
-                    if (order['delivery_city'] != null && order['delivery_city'].toString().isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          '${order['delivery_neighborhood'] ?? ''}, ${order['delivery_city']}',
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.cardDark,
+          borderRadius: BorderRadius.circular(12),
+          border:
+              Border.all(color: AppColors.divider.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(order['order_number'] ?? '',
                           style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 11),
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15)),
+                      Text(order['customer_name'] ?? '',
+                          style: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 13)),
+                      if (order['delivery_city'] != null && order['delivery_city'].toString().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            '${order['delivery_neighborhood'] ?? ''}, ${order['delivery_city']}',
+                            style: const TextStyle(
+                                color: AppColors.textSecondary, fontSize: 11),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    OrderStatusBadge(status: status),
+                    if (order['delivery_zone_from'] != null && order['delivery_zone_to'] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${_zoneAr(order['delivery_zone_from'])} → ${_zoneAr(order['delivery_zone_to'])}',
+                            style: const TextStyle(
+                              color: AppColors.info,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  OrderStatusBadge(status: status),
-                  if (order['delivery_zone_from'] != null && order['delivery_zone_to'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.info.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '${_zoneAr(order['delivery_zone_from'])} → ${_zoneAr(order['delivery_zone_to'])}',
-                          style: const TextStyle(
-                            color: AppColors.info,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Text(
-                fmt.format(double.tryParse(
-                        order['total_amount']?.toString() ?? '0') ??
-                    0),
-                style: const TextStyle(
-                    color: AppColors.primaryOrange,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14),
-              ),
-              const Spacer(),
-              ..._actionButtons(order),
-            ],
-          ),
-        ],
-      ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  fmt.format(double.tryParse(
+                          order['total_amount']?.toString() ?? '0') ??
+                      0),
+                  style: const TextStyle(
+                      color: AppColors.primaryOrange,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14),
+                ),
+                const Spacer(),
+                ..._actionButtons(order, controller),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  List<Widget> _actionButtons(Map<String, dynamic> order) {
+  List<Widget> _actionButtons(Map<String, dynamic> order, AdminOrdersController controller) {
     final status = order['status'] ?? '';
     final id = order['id'] ?? '';
 
@@ -228,7 +230,7 @@ class AdminOrdersView extends GetView<AdminOrdersController> {
         _actionBtn('Confirm'.tr, AppColors.success,
             () => controller.confirmOrder(id)),
         const SizedBox(width: 8),
-        _actionBtn('Cancel'.tr, AppColors.error, () => _cancel(id)),
+        _actionBtn('Cancel'.tr, AppColors.error, () => _cancel(id, controller)),
       ];
     }
     if (status == AppConstants.orderReadyForPickup) {
@@ -263,9 +265,9 @@ class AdminOrdersView extends GetView<AdminOrdersController> {
     );
   }
 
-  void _cancel(String id) {
+  void _cancel(String id, AdminOrdersController controller) {
     final ctrl = TextEditingController();
-    Get.dialog(AlertDialog(
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title:
           Text('Cancel Order'.tr, style: const TextStyle(color: Colors.white)),
@@ -275,11 +277,11 @@ class AdminOrdersView extends GetView<AdminOrdersController> {
         decoration: InputDecoration(hintText: 'Cancellation reason...'.tr),
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: Text('Back'.tr)),
+        TextButton(onPressed: () => AppNavigator.back(), child: Text('Back'.tr)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
+            AppNavigator.back();
             controller.cancelOrder(id, ctrl.text);
           },
           child: Text('Cancel Order'.tr),

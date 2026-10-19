@@ -1,34 +1,42 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/providers/api_provider.dart';
 import '../../../../app/constants/api_endpoints.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class VendorOrdersController extends GetxController {
-  final isLoading = false.obs;
-  final pendingOrders = <Map<String, dynamic>>[].obs;
-  final allOrders = <Map<String, dynamic>>[].obs;
-  final error = ''.obs;
+final vendorOrdersProvider = ChangeNotifierProvider<VendorOrdersController>((ref) {
+  return VendorOrdersController.to;
+});
 
-  @override
-  void onInit() {
-    super.onInit();
+class VendorOrdersController extends ChangeNotifier {
+  static VendorOrdersController? _instance;
+  static VendorOrdersController get to => _instance ??= VendorOrdersController();
+
+  bool isLoading = false;
+  List<Map<String, dynamic>> pendingOrders = [];
+  List<Map<String, dynamic>> allOrders = [];
+  String error = '';
+
+  VendorOrdersController() {
     fetchAll();
   }
 
   Future<void> fetchAll() async {
-    isLoading.value = true;
-    error.value = '';
+    isLoading = true;
+    error = '';
+    notifyListeners();
+
     try {
       final pendRes =
           await ApiProvider.get(ApiEndpoints.vendorOrdersGetPending);
       if (pendRes.success && pendRes.data != null) {
         final data = pendRes.data;
         if (data is List) {
-          pendingOrders.value =
-              List<Map<String, dynamic>>.from(data);
+          pendingOrders = List<Map<String, dynamic>>.from(data);
         } else if (data is Map<String, dynamic>) {
-          pendingOrders.value =
+          pendingOrders =
               List<Map<String, dynamic>>.from(data['orders'] as List? ?? []);
         }
       }
@@ -36,18 +44,18 @@ class VendorOrdersController extends GetxController {
       if (allRes.success && allRes.data != null) {
         final data = allRes.data;
         if (data is List) {
-          allOrders.value =
-              List<Map<String, dynamic>>.from(data);
+          allOrders = List<Map<String, dynamic>>.from(data);
         } else if (data is Map<String, dynamic>) {
-          allOrders.value =
+          allOrders =
               List<Map<String, dynamic>>.from(data['orders'] as List? ?? []);
         }
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[VendorOrders] Error: $e');
-      error.value = 'Error loading orders: $e';
+      error = 'Error loading orders: $e';
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -72,11 +80,11 @@ class VendorOrdersController extends GetxController {
   void _handle(dynamic res, String msg) {
     if (res.success) {
       fetchAll();
-      Get.snackbar('Success'.tr, msg,
+      AppNavigator.snackbar('Success'.tr, msg,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF));
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: const Color(0xFFFFFFFF));
     }

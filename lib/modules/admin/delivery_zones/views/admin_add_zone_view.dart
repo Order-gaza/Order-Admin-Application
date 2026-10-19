@@ -1,98 +1,118 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../data/providers/api_provider.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class AdminAddZoneController extends GetxController {
-  final isSaving = false.obs;
+class AdminAddZoneView extends StatefulWidget {
+  const AdminAddZoneView({super.key});
 
-  // Form fields matching DB columns exactly
-  final nameCtrl = TextEditingController();
-  final minDistanceCtrl = TextEditingController();
-  final maxDistanceCtrl = TextEditingController();
-  final baseFeeCtrl = TextEditingController();
-  final nearbyExtraFeeCtrl = TextEditingController(text: '0');
-  final farExtraFeeCtrl = TextEditingController(text: '0');
-  final estDeliveryTimeCtrl = TextEditingController();
+  @override
+  State<AdminAddZoneView> createState() => _AdminAddZoneViewState();
+}
 
-  // Edit mode
-  bool get isEditMode => _editZoneId != null;
+class _AdminAddZoneViewState extends State<AdminAddZoneView> {
+  bool _isSaving = false;
+
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _minDistanceCtrl;
+  late final TextEditingController _maxDistanceCtrl;
+  late final TextEditingController _baseFeeCtrl;
+  late final TextEditingController _nearbyExtraFeeCtrl;
+  late final TextEditingController _farExtraFeeCtrl;
+  late final TextEditingController _estDeliveryTimeCtrl;
+
+  bool get _isEditMode => _editZoneId != null;
   String? _editZoneId;
 
   @override
-  void onInit() {
-    super.onInit();
-    final args = Get.arguments;
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController();
+    _minDistanceCtrl = TextEditingController();
+    _maxDistanceCtrl = TextEditingController();
+    _baseFeeCtrl = TextEditingController();
+    _nearbyExtraFeeCtrl = TextEditingController(text: '0');
+    _farExtraFeeCtrl = TextEditingController(text: '0');
+    _estDeliveryTimeCtrl = TextEditingController();
+
+    final args = AppNavigator.arguments;
     if (args is Map<String, dynamic> && args['id'] != null) {
       _editZoneId = args['id'].toString();
-      nameCtrl.text = args['name'] ?? '';
-      minDistanceCtrl.text = args['min_distance_km']?.toString() ?? '';
-      maxDistanceCtrl.text = args['max_distance_km']?.toString() ?? '';
-      baseFeeCtrl.text = args['base_fee']?.toString() ?? '';
-      nearbyExtraFeeCtrl.text = args['nearby_extra_fee']?.toString() ?? '0';
-      farExtraFeeCtrl.text = args['far_extra_fee']?.toString() ?? '0';
-      estDeliveryTimeCtrl.text = args['estimated_delivery_time']?.toString() ?? '';
+      _nameCtrl.text = args['name'] ?? '';
+      _minDistanceCtrl.text = args['min_distance_km']?.toString() ?? '';
+      _maxDistanceCtrl.text = args['max_distance_km']?.toString() ?? '';
+      _baseFeeCtrl.text = args['base_fee']?.toString() ?? '';
+      _nearbyExtraFeeCtrl.text = args['nearby_extra_fee']?.toString() ?? '0';
+      _farExtraFeeCtrl.text = args['far_extra_fee']?.toString() ?? '0';
+      _estDeliveryTimeCtrl.text = args['estimated_delivery_time']?.toString() ?? '';
     }
   }
 
   @override
-  void onClose() {
-    nameCtrl.dispose();
-    minDistanceCtrl.dispose();
-    maxDistanceCtrl.dispose();
-    baseFeeCtrl.dispose();
-    nearbyExtraFeeCtrl.dispose();
-    farExtraFeeCtrl.dispose();
-    estDeliveryTimeCtrl.dispose();
-    super.onClose();
+  void dispose() {
+    _nameCtrl.dispose();
+    _minDistanceCtrl.dispose();
+    _maxDistanceCtrl.dispose();
+    _baseFeeCtrl.dispose();
+    _nearbyExtraFeeCtrl.dispose();
+    _farExtraFeeCtrl.dispose();
+    _estDeliveryTimeCtrl.dispose();
+    super.dispose();
   }
 
-  Future<void> save() async {
-    if (nameCtrl.text.trim().isEmpty) {
+  void _error(String msg) {
+    AppNavigator.snackbar('Error'.tr, msg,
+        backgroundColor: const Color(0xFFF44336),
+        colorText: const Color(0xFFFFFFFF));
+  }
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty) {
       _error('Zone name is required'.tr);
       return;
     }
-    if (minDistanceCtrl.text.trim().isEmpty) {
+    if (_minDistanceCtrl.text.trim().isEmpty) {
       _error('Min distance is required'.tr);
       return;
     }
-    if (maxDistanceCtrl.text.trim().isEmpty) {
+    if (_maxDistanceCtrl.text.trim().isEmpty) {
       _error('Max distance is required'.tr);
       return;
     }
-    if (baseFeeCtrl.text.trim().isEmpty) {
+    if (_baseFeeCtrl.text.trim().isEmpty) {
       _error('Base fee is required'.tr);
       return;
     }
 
-    final minDist = double.tryParse(minDistanceCtrl.text.trim()) ?? 0;
-    final maxDist = double.tryParse(maxDistanceCtrl.text.trim()) ?? 0;
+    final minDist = double.tryParse(_minDistanceCtrl.text.trim()) ?? 0;
+    final maxDist = double.tryParse(_maxDistanceCtrl.text.trim()) ?? 0;
     if (maxDist <= minDist) {
       _error('Max distance must be greater than min distance'.tr);
       return;
     }
 
-    isSaving.value = true;
+    setState(() => _isSaving = true);
     try {
       final body = <String, String>{
-        'name': nameCtrl.text.trim(),
-        'min_distance_km': minDistanceCtrl.text.trim(),
-        'max_distance_km': maxDistanceCtrl.text.trim(),
-        'base_fee': baseFeeCtrl.text.trim(),
-        'nearby_extra_fee': nearbyExtraFeeCtrl.text.trim().isEmpty
+        'name': _nameCtrl.text.trim(),
+        'min_distance_km': _minDistanceCtrl.text.trim(),
+        'max_distance_km': _maxDistanceCtrl.text.trim(),
+        'base_fee': _baseFeeCtrl.text.trim(),
+        'nearby_extra_fee': _nearbyExtraFeeCtrl.text.trim().isEmpty
             ? '0'
-            : nearbyExtraFeeCtrl.text.trim(),
-        'far_extra_fee': farExtraFeeCtrl.text.trim().isEmpty
+            : _nearbyExtraFeeCtrl.text.trim(),
+        'far_extra_fee': _farExtraFeeCtrl.text.trim().isEmpty
             ? '0'
-            : farExtraFeeCtrl.text.trim(),
-        if (estDeliveryTimeCtrl.text.trim().isNotEmpty)
-          'estimated_delivery_time': estDeliveryTimeCtrl.text.trim(),
+            : _farExtraFeeCtrl.text.trim(),
+        if (_estDeliveryTimeCtrl.text.trim().isNotEmpty)
+          'estimated_delivery_time': _estDeliveryTimeCtrl.text.trim(),
       };
 
       ApiResponse res;
 
-      if (isEditMode) {
+      if (_isEditMode) {
         body['zone_id'] = _editZoneId!;
         res = await ApiProvider.post(ApiEndpoints.adminDeliveryZonesUpdate,
             body: body);
@@ -102,10 +122,10 @@ class AdminAddZoneController extends GetxController {
       }
 
       if (res.success) {
-        Get.back(result: true);
-        Get.snackbar(
-          isEditMode ? 'Updated'.tr : 'Created'.tr,
-          isEditMode ? 'Delivery zone updated'.tr : 'Delivery zone created'.tr,
+        AppNavigator.back(result: true);
+        AppNavigator.snackbar(
+          _isEditMode ? 'Updated'.tr : 'Created'.tr,
+          _isEditMode ? 'Delivery zone updated'.tr : 'Delivery zone created'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: const Color(0xFFFFFFFF),
         );
@@ -115,51 +135,42 @@ class AdminAddZoneController extends GetxController {
     } catch (e) {
       _error('Something went wrong'.tr);
     } finally {
-      isSaving.value = false;
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
-  void _error(String msg) {
-    Get.snackbar('Error'.tr, msg,
-        backgroundColor: const Color(0xFFF44336),
-        colorText: const Color(0xFFFFFFFF));
-  }
-}
-
-class AdminAddZoneView extends StatelessWidget {
-  const AdminAddZoneView({super.key});
-
   @override
   Widget build(BuildContext context) {
-    final ctrl = Get.put(AdminAddZoneController());
-
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
         title:
-            Text(ctrl.isEditMode ? 'Edit Delivery Zone'.tr : 'New Delivery Zone'.tr),
+            Text(_isEditMode ? 'Edit Delivery Zone'.tr : 'New Delivery Zone'.tr),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => Get.back(),
+          onPressed: () => AppNavigator.back(),
         ),
         actions: [
-          Obx(() => ctrl.isSaving.value
-              ? const Padding(
-                  padding: EdgeInsets.all(14),
-                  child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: AppColors.primaryOrange, strokeWidth: 2)),
-                )
-              : TextButton(
-                  onPressed: ctrl.save,
-                  child: Text('Save'.tr,
-                      style: const TextStyle(
-                          color: AppColors.primaryOrange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15)),
-                )),
+          if (_isSaving)
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      color: AppColors.primaryOrange, strokeWidth: 2)),
+            )
+          else
+            TextButton(
+              onPressed: _save,
+              child: Text('Save'.tr,
+                  style: const TextStyle(
+                      color: AppColors.primaryOrange,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15)),
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -172,7 +183,7 @@ class AdminAddZoneView extends StatelessWidget {
             const SizedBox(height: 12),
             _label('Zone Name *'.tr),
             TextField(
-              controller: ctrl.nameCtrl,
+              controller: _nameCtrl,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'e.g. Zone 1 - Very Close (0 to 2 km)'.tr,
@@ -192,7 +203,7 @@ class AdminAddZoneView extends StatelessWidget {
                     children: [
                       _label('Min Distance (km) *'.tr),
                       TextField(
-                        controller: ctrl.minDistanceCtrl,
+                        controller: _minDistanceCtrl,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         style: const TextStyle(color: Colors.white),
@@ -211,7 +222,7 @@ class AdminAddZoneView extends StatelessWidget {
                     children: [
                       _label('Max Distance (km) *'.tr),
                       TextField(
-                        controller: ctrl.maxDistanceCtrl,
+                        controller: _maxDistanceCtrl,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         style: const TextStyle(color: Colors.white),
@@ -256,7 +267,7 @@ class AdminAddZoneView extends StatelessWidget {
             const SizedBox(height: 12),
             _label('Base Fee (₪) *'.tr),
             TextField(
-              controller: ctrl.baseFeeCtrl,
+              controller: _baseFeeCtrl,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white),
@@ -275,7 +286,7 @@ class AdminAddZoneView extends StatelessWidget {
                     children: [
                       _label('Nearby Extra Fee (₪)'.tr),
                       TextField(
-                        controller: ctrl.nearbyExtraFeeCtrl,
+                        controller: _nearbyExtraFeeCtrl,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         style: const TextStyle(color: Colors.white),
@@ -294,7 +305,7 @@ class AdminAddZoneView extends StatelessWidget {
                     children: [
                       _label('Far Extra Fee (₪)'.tr),
                       TextField(
-                        controller: ctrl.farExtraFeeCtrl,
+                        controller: _farExtraFeeCtrl,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         style: const TextStyle(color: Colors.white),
@@ -339,7 +350,7 @@ class AdminAddZoneView extends StatelessWidget {
             const SizedBox(height: 12),
             _label('Estimated Time (optional)'.tr),
             TextField(
-              controller: ctrl.estDeliveryTimeCtrl,
+              controller: _estDeliveryTimeCtrl,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'e.g. 30-45 min'.tr,
@@ -351,20 +362,20 @@ class AdminAddZoneView extends StatelessWidget {
             // ── Submit ──
             SizedBox(
               width: double.infinity,
-              child: Obx(() => ElevatedButton.icon(
-                    onPressed: ctrl.isSaving.value ? null : ctrl.save,
-                    icon: Icon(ctrl.isEditMode
-                        ? Icons.save_outlined
-                        : Icons.add_location_alt),
-                    label: Text(ctrl.isSaving.value
-                        ? 'Saving...'.tr
-                        : ctrl.isEditMode
-                            ? 'Save Changes'.tr
-                            : 'Create Zone'.tr),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  )),
+              child: ElevatedButton.icon(
+                onPressed: _isSaving ? null : _save,
+                icon: Icon(_isEditMode
+                    ? Icons.save_outlined
+                    : Icons.add_location_alt),
+                label: Text(_isSaving
+                    ? 'Saving...'.tr
+                    : _isEditMode
+                        ? 'Save Changes'.tr
+                        : 'Create Zone'.tr),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
             ),
             const SizedBox(height: 24),
           ],

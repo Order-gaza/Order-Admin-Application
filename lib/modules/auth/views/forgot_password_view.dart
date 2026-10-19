@@ -1,47 +1,69 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/constants/api_endpoints.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../data/providers/api_provider.dart';
+import '../../../shared/localization/app_translations.dart';
+import '../../../shared/utils/app_navigator.dart';
 
 /// Step 1: Enter email → send OTP code
-class ForgotPasswordView extends StatelessWidget {
+class ForgotPasswordView extends StatefulWidget {
   const ForgotPasswordView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final emailCtrl = TextEditingController();
-    final isLoading = false.obs;
-    final error = ''.obs;
+  State<ForgotPasswordView> createState() => _ForgotPasswordViewState();
+}
 
-    Future<void> sendCode() async {
-      final email = emailCtrl.text.trim();
-      if (email.isEmpty) {
-        error.value = 'Please enter your email'.tr;
-        return;
-      }
+class _ForgotPasswordViewState extends State<ForgotPasswordView> {
+  late final TextEditingController _emailCtrl;
+  bool _isLoading = false;
+  String _error = '';
 
-      isLoading.value = true;
-      error.value = '';
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl = TextEditingController();
+  }
 
-      final res = await ApiProvider.post(
-        ApiEndpoints.forgotPassword,
-        body: {'email': email},
-      );
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
 
-      isLoading.value = false;
-
-      if (res.success) {
-        Get.toNamed(
-          AppRoutes.verifyOtp,
-          arguments: {'email': email},
-        );
-      } else {
-        error.value = res.message?.tr ?? 'Failed to send code'.tr;
-      }
+  Future<void> _sendCode() async {
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty) {
+      setState(() => _error = 'Please enter your email'.tr);
+      return;
     }
 
+    setState(() {
+      _isLoading = true;
+      _error = '';
+    });
+
+    final res = await ApiProvider.post(
+      ApiEndpoints.forgotPassword,
+      body: {'email': email},
+    );
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    if (res.success) {
+      AppNavigator.toNamed(
+        AppRoutes.verifyOtp,
+        arguments: {'email': email},
+      );
+    } else {
+      setState(() => _error = res.message?.tr ?? 'Failed to send code'.tr);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -72,7 +94,7 @@ class ForgotPasswordView extends StatelessWidget {
             // ── Title ──
             Center(
               child: Text('Reset your password'.tr,
-                  style: TextStyle(
+                  style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.white)),
@@ -91,7 +113,7 @@ class ForgotPasswordView extends StatelessWidget {
 
             // ── Email field ──
             TextField(
-              controller: emailCtrl,
+              controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
@@ -102,9 +124,8 @@ class ForgotPasswordView extends StatelessWidget {
             const SizedBox(height: 16),
 
             // ── Error ──
-            Obx(() {
-              if (error.value.isEmpty) return const SizedBox.shrink();
-              return Container(
+            if (_error.isNotEmpty)
+              Container(
                 width: double.infinity,
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(12),
@@ -114,29 +135,28 @@ class ForgotPasswordView extends StatelessWidget {
                   border: Border.all(
                       color: AppColors.error.withValues(alpha: 0.3)),
                 ),
-                child: Text(error.value,
+                child: Text(_error,
                     style:
                         const TextStyle(color: AppColors.error, fontSize: 13)),
-              );
-            }),
+              ),
 
             // ── Send button ──
-            Obx(() => SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: isLoading.value ? null : sendCode,
-                    child: isLoading.value
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2.5))
-                        : Text('Send Reset Code'.tr,
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                )),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _sendCode,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.5))
+                    : Text('Send Reset Code'.tr,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+            ),
           ],
         ),
       ),

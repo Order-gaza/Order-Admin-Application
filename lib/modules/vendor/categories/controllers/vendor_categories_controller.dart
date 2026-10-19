@@ -1,31 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/constants/api_endpoints.dart';
 import '../../../../data/providers/api_provider.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 
-class VendorCategoriesController extends GetxController {
-  final isLoading = false.obs;
-  final categories = <Map<String, dynamic>>[].obs;
-  final globalCategories = <Map<String, dynamic>>[].obs;
+final vendorCategoriesProvider = ChangeNotifierProvider<VendorCategoriesController>((ref) {
+  return VendorCategoriesController.to;
+});
 
-  @override
-  void onInit() {
-    super.onInit();
+class VendorCategoriesController extends ChangeNotifier {
+  static VendorCategoriesController? _instance;
+  static VendorCategoriesController get to => _instance ??= VendorCategoriesController();
+
+  bool isLoading = false;
+  List<Map<String, dynamic>> categories = [];
+  List<Map<String, dynamic>> globalCategories = [];
+
+  VendorCategoriesController() {
     fetchCategories();
     fetchGlobalCategories();
   }
 
   Future<void> fetchCategories() async {
-    isLoading.value = true;
+    isLoading = true;
+    notifyListeners();
     try {
       final res = await ApiProvider.get(ApiEndpoints.vendorCategoriesGetAll);
       if (res.success && res.data != null) {
         final d = res.data as Map<String, dynamic>;
-        categories.value =
+        categories =
             List<Map<String, dynamic>>.from(d['categories'] as List? ?? []);
       }
     } finally {
-      isLoading.value = false;
+      isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -33,8 +42,9 @@ class VendorCategoriesController extends GetxController {
     final res = await ApiProvider.get(ApiEndpoints.vendorCategoriesGetGlobal);
     if (res.success && res.data != null) {
       final d = res.data as Map<String, dynamic>;
-      globalCategories.value =
+      globalCategories =
           List<Map<String, dynamic>>.from(d['categories'] as List? ?? []);
+      notifyListeners();
     }
   }
 
@@ -51,11 +61,11 @@ class VendorCategoriesController extends GetxController {
     if (res.success) {
       await fetchCategories();
       await fetchGlobalCategories();
-      Get.snackbar('Added'.tr, 'Category added'.tr,
+      AppNavigator.snackbar('Added'.tr, 'Category added'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: Colors.white);
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: Colors.white);
     }
@@ -67,7 +77,7 @@ class VendorCategoriesController extends GetxController {
     if (res.success) {
       await fetchCategories();
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: Colors.white);
     }
@@ -79,11 +89,12 @@ class VendorCategoriesController extends GetxController {
     if (res.success) {
       categories.removeWhere((c) => c['id']?.toString() == id);
       await fetchGlobalCategories();
-      Get.snackbar('Deleted'.tr, 'Category removed'.tr,
+      notifyListeners();
+      AppNavigator.snackbar('Deleted'.tr, 'Category removed'.tr,
           backgroundColor: const Color(0xFF4CAF50),
           colorText: Colors.white);
     } else {
-      Get.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
+      AppNavigator.snackbar('Error'.tr, res.message?.tr ?? 'Failed'.tr,
           backgroundColor: const Color(0xFFF44336),
           colorText: Colors.white);
     }

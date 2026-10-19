@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../shared/localization/app_translations.dart';
+import '../../../../shared/utils/app_navigator.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../controllers/sa_customers_controller.dart';
 
-class SaCustomersView extends GetView<SaCustomersController> {
+class SaCustomersView extends ConsumerWidget {
   const SaCustomersView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(SaCustomersController());
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(saCustomersProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -30,7 +33,7 @@ class SaCustomersView extends GetView<SaCustomersController> {
             child: Column(
               children: [
                 TextField(
-                  onChanged: (v) => controller.searchQuery.value = v,
+                  onChanged: (v) => controller.setSearchQuery(v),
                   decoration: InputDecoration(
                     hintText: 'Search customers...'.tr,
                     prefixIcon: const Icon(Icons.search),
@@ -38,44 +41,44 @@ class SaCustomersView extends GetView<SaCustomersController> {
                 ),
                 const SizedBox(height: 12),
                 // Stats row
-                Obx(() => Row(
-                      children: [
-                        _statChip(
-                          'Total'.tr,
-                          controller.customers.length.toString(),
-                          AppColors.primaryOrange,
-                        ),
-                        const SizedBox(width: 8),
-                        _statChip(
-                          'Active'.tr,
-                          controller.customers
-                              .where((c) =>
-                                  c['is_active'] == true ||
-                                  c['is_active'] == 1)
-                              .length
-                              .toString(),
-                          AppColors.success,
-                        ),
-                        const SizedBox(width: 8),
-                        _statChip(
-                          'Inactive'.tr,
-                          controller.customers
-                              .where((c) =>
-                                  c['is_active'] == false ||
-                                  c['is_active'] == 0)
-                              .length
-                              .toString(),
-                          AppColors.error,
-                        ),
-                      ],
-                    )),
+                Row(
+                  children: [
+                    _statChip(
+                      'Total'.tr,
+                      controller.customers.length.toString(),
+                      AppColors.primaryOrange,
+                    ),
+                    const SizedBox(width: 8),
+                    _statChip(
+                      'Active'.tr,
+                      controller.customers
+                          .where((c) =>
+                              c['is_active'] == true ||
+                              c['is_active'] == 1)
+                          .length
+                          .toString(),
+                      AppColors.success,
+                    ),
+                    const SizedBox(width: 8),
+                    _statChip(
+                      'Inactive'.tr,
+                      controller.customers
+                          .where((c) =>
+                              c['is_active'] == false ||
+                              c['is_active'] == 0)
+                          .length
+                          .toString(),
+                      AppColors.error,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
           // ── List ──
           Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
+            child: Builder(builder: (_) {
+              if (controller.isLoading) {
                 return const Center(
                     child: CircularProgressIndicator(
                         color: AppColors.primaryOrange));
@@ -104,7 +107,7 @@ class SaCustomersView extends GetView<SaCustomersController> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: list.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _customerCard(context, list[i]),
+                  itemBuilder: (_, i) => _customerCard(context, controller, list[i]),
                 ),
               );
             }),
@@ -140,7 +143,7 @@ class SaCustomersView extends GetView<SaCustomersController> {
     );
   }
 
-  Widget _customerCard(BuildContext context, Map<String, dynamic> customer) {
+  Widget _customerCard(BuildContext context, SaCustomersController controller, Map<String, dynamic> customer) {
     final isActive =
         customer['is_active'] == true || customer['is_active'] == 1;
     final orderCount = customer['order_count'] ?? 0;
@@ -150,7 +153,7 @@ class SaCustomersView extends GetView<SaCustomersController> {
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Get.toNamed(AppRoutes.saCustomerDetail, arguments: {
+        onTap: () => AppNavigator.toNamed(AppRoutes.saCustomerDetail, arguments: {
           'customer_id': customer['id'],
           'customer_name': customer['name'] ?? 'Customer',
         }),
@@ -259,7 +262,7 @@ class SaCustomersView extends GetView<SaCustomersController> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                    Row(
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
@@ -276,7 +279,7 @@ class SaCustomersView extends GetView<SaCustomersController> {
                     ),
                     const SizedBox(width: 4),
                     IconButton(
-                      onPressed: () => _confirmDelete(context, customer),
+                      onPressed: () => _confirmDelete(context, controller, customer),
                       icon: const Icon(Icons.delete_outline,
                           color: AppColors.error, size: 22),
                       padding: EdgeInsets.zero,
@@ -296,9 +299,9 @@ class SaCustomersView extends GetView<SaCustomersController> {
   }
 
   void _confirmDelete(
-      BuildContext context, Map<String, dynamic> customer) {
+      BuildContext context, SaCustomersController controller, Map<String, dynamic> customer) {
     final orderCount = customer['order_count'] ?? 0;
-    Get.dialog(AlertDialog(
+    AppNavigator.dialog(AlertDialog(
       backgroundColor: AppColors.darkSurface,
       title:
           Text('Delete Customer'.tr, style: const TextStyle(color: Colors.white)),
@@ -340,12 +343,12 @@ class SaCustomersView extends GetView<SaCustomersController> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Get.back(), child: Text('Cancel'.tr)),
+            onPressed: () => AppNavigator.back(), child: Text('Cancel'.tr)),
         ElevatedButton(
           style:
               ElevatedButton.styleFrom(backgroundColor: AppColors.error),
           onPressed: () {
-            Get.back();
+            AppNavigator.back();
             controller.deleteCustomer(customer['id']);
           },
           child: Text(orderCount > 0 ? 'Deactivate'.tr : 'Delete'.tr),
