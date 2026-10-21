@@ -13,7 +13,7 @@ The Admin Application is a cross-platform mobile client built with Flutter, desi
 
 ## Technology Stack
 * **Framework:** Flutter / Dart
-* **State Management:** GetX
+* **State Management:** Riverpod
 * **Storage & Caching:** GetStorage, SharedPreferences, Flutter Secure Storage
 * **Network & API Integration:** `http` package with secure authentication headers
 * **Target Platforms:** Android, iOS
@@ -46,4 +46,4 @@ The Admin Application is a cross-platform mobile client built with Flutter, desi
 
 ## Development Guidelines
 * Maintain strict type safety across all Data Transfer Objects (DTOs) and API payloads.
-* Ensure all state changes reflect correctly in the UI, utilizing GetX's reactive principles, particularly for order status transitions and vendor availability toggles.
+* Ensure all state changes reflect correctly in the UI, utilizing Riverpod's reactive principles, particularly for order status transitions and vendor availability toggles.
